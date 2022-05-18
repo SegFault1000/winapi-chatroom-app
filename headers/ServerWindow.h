@@ -11,7 +11,7 @@ class ServerWindow
 	HWND label = NULL;
 	RichEdit re;
 	RichEdit reServerLog;
-	class ChatServer* chatServer = NULL;
+	ChatServer* chatServer = NULL;
 public:
 	static void RegisterWindowClass(HINSTANCE hInstance);
 	static bool Create(HINSTANCE hInstance, int x, int y, int width, int height, ServerWindow* out);	
