@@ -114,16 +114,16 @@ void LoginWindow::RegisterWindowClass(HINSTANCE hInstance) {
 		return;
 	windowClassRegistered = true;
 	WNDCLASSW wc;
-  wc.style = CS_HREDRAW | CS_VREDRAW;
-  wc.cbClsExtra = 0;
-  wc.cbWndExtra = 0;
-  wc.lpszClassName = L"LOGINWINDOW";
-  wc.hInstance = hInstance;
-  wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
-  wc.lpszMenuName = NULL;
-  wc.lpfnWndProc = LoginWindowProc;
-  wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-  wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.lpszClassName = L"LOGINWINDOW";
+	wc.hInstance = hInstance;
+	wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
+	wc.lpszMenuName = NULL;
+	wc.lpfnWndProc = LoginWindowProc;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	
 	RegisterClassW(&wc);
 }
@@ -210,13 +210,15 @@ bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, L
 }
 
 LoginWindow& LoginWindow::SetChatClient(ChatClient* chatClient){
-	 this->chatClient = chatClient;
-	 this->chatClient->loginWindow = this;
+	this->chatClient = chatClient;
+	this->chatClient->loginWindow = this;
+	return *this;	
 }
 
 LoginWindow& LoginWindow::SetChatServer(ChatServer* chatServer){ 
 	this->chatServer = chatServer;
 	this->chatServer->loginWindow = this;
+	return *this;
 }
 
 WPARAM LoginWindow::Run() {
@@ -224,11 +226,10 @@ WPARAM LoginWindow::Run() {
 	UpdateWindow(hwnd);
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0))
-  {
+	{
 		TranslateMessage(&msg);
-    DispatchMessage(&msg);
-  }
-	
+		DispatchMessage(&msg);
+  	}	
 	return msg.wParam;
 }
 
