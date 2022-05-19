@@ -165,11 +165,11 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 	MainWindow* window = (MainWindow*)GetPropW(hwnd, L"WINDOW");
 	auto ShowMessageBox = std::bind(util::ShowMessageBox, 
 		std::placeholders::_1, std::placeholders::_2, 0);
-  switch (msg)
-  {
-  case WM_DESTROY:
-    PostQuitMessage(0);
-    break;
+	switch (msg)
+	{
+	case WM_DESTROY:
+		PostQuitMessage(0);
+	break;
 	case WM_PAINT:
 		if(!window) break;		
 	break;
@@ -179,15 +179,15 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		{									
 			break;
 		} 
-		
-			
+
+
 	}
 	break;
 	case WM_KEYUP:
 	{
 		if(!window) 
 			break;
-		
+
 	}
 	break;
 	case WM_SIZE:
@@ -195,7 +195,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 			break;
 		window->width = LOWORD(lParam);
 		window->height = HIWORD(lParam);
-		
+
 	break;	
 	case WM_WINDOWPOSCHANGED:
 		if(!window) 
@@ -225,11 +225,11 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		SetFocus(hwnd);
 	break;
 	case WM_CREATE:
-		
-	break;
-  }
 
-  return DefWindowProcW(hwnd, msg, wParam, lParam);
+	break;
+	}
+
+	return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
 
