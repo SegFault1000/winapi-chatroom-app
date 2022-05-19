@@ -142,10 +142,10 @@ WPARAM MainWindow::Run()
 	UpdateWindow(hwnd);
 	
 	while (GetMessage(&msg, NULL, 0, 0))
-  {
+	{
 		TranslateMessage(&msg);
-    DispatchMessage(&msg);
-  }
+		DispatchMessage(&msg);
+	}
 	
 	return msg.wParam;
 }
