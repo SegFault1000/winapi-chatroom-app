@@ -1,4 +1,4 @@
-# WinapiChatRoomApp
+# Winapi chatroom app
 
 This was made with winsock2, winapi, fmt and rapidjson.
 Requires at least C++17.
