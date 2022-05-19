@@ -46,7 +46,7 @@ bool NetworkMessage::SendJson(SOCKET client)
 		int32_t bytesReceived = send(client, json + sent_size, bytesLeft, 0);
 		if(bytesReceived < 0)
 		{
-			continue;
+			return false;
 		}
 		sent_size += bytesReceived;			
 	}
