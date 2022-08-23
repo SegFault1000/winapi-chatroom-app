@@ -14,6 +14,13 @@ public:
 	inline static const std::string MEMBER_JOIN = "MEMBER_JOIN";
 	inline static const std::string MEMBER_LIST = "MEMBER_LIST";
 	inline static const std::string MEMBER_LIST_ADD = "MEMBER_LIST_ADD";
+	inline static const std::string MEMBER_LIST_REMOVE = "MEMBER_LIST_REMOVE";
+
+
+	inline static const std::string PING = "PING";	
+	inline static const std::string MEMBER_DISCONNECT = "MEMBER_DISCONNECT";
+	inline static const std::string MEMBER_LOGOUT= "MEMBER_LOGOUT";
+
 	enum class ErrorFlag : int32_t
 	{
 		Success, SocketError, ConnectionFail, InvalidJson
@@ -27,7 +34,7 @@ public:
 
 	bool SendJson(SOCKET client);
 	
-	ErrorFlag ReceiveJson(SOCKET sock, char* buffer, int32_t bufferSize);
+	ErrorFlag ReceiveJson(SOCKET sock, char* buffer, int32_t bufferSize);	
 	
 	rapidjson::Document& GetDocument() { return doc; }
 	NetworkMessage& EditMember(std::string_view key, std::string_view newValue);
