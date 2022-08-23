@@ -181,8 +181,7 @@ void ChatClient::Run() {
 		
 			}
 			catch(const std::exception& e)
-			{
-				//std::thread{ []{  }}.detach();
+			{				
 				//MessageBoxW(0, L"Failed to parse json.", L"Error", 0);
 			}			
 		}
@@ -252,19 +251,4 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 }
 
 
-		/*
-				if(type == "CHAT_MESSAGE")			
-				{
-					std::string username = doc["username"].GetString();
-					std::string content = doc["content"].GetString();
-
-					int length_required = MultiByteToWideChar(CP_UTF8, 0, content.c_str(), content.size(), NULL, 0);
-					std::wstring contentW(length_required, L' ');
-					MultiByteToWideChar(CP_UTF8, 0, content.c_str(), content.size(), contentW.data(), length_required);
-
-					length_required = MultiByteToWideChar(CP_UTF8, 0, username.c_str(), username.size(), NULL, 0);
-					std::wstring usernameW(length_required, L' ');
-					MultiByteToWideChar(CP_UTF8, 0, username.c_str(), username.size(), usernameW.data(), length_required);
-					
-					chatMessageCallback(usernameW, contentW);										
-				}	*/
+		
