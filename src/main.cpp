@@ -19,6 +19,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 		MessageBoxW(0, L"Failed to initialize WSA.", L"Error", 0);
 		return 1;
 	}
+	sizeof(WSADATA);
 	ChatClient chatClient{&wsa};
 	ChatServer chatServer{&wsa};
 	LoginWindow::RegisterWindowClass(hInstance);
@@ -34,7 +35,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 	loginWindow.SetChatServer(&chatServer);
 	WPARAM returnValue = loginWindow.Run();
 
-	WSACleanup();
+	WSACleanup();	
 	return returnValue;
 }
 

@@ -62,7 +62,12 @@ public:
 	
 	std::mutex lbMembersMutex;
 	bool SetMemberListFromJsonArray(rapidjson::Value::Array& val);
-	bool AppendToMemberList(const char* memberName, int memberNameLen);
+	void AppendToMemberList(const char* memberName, int memberNameLen);
+	void RemoveFromMemberList(const char* memberName, int memberNameLen);
+	void AppendToMemberList(const wchar_t* memberNameW);
+	void RemoveFromMemberList(const wchar_t* memberNameW);
+
+	void Logout();
 	
 	WPARAM Run();	
 	//3 - Event stuff:			

@@ -20,7 +20,8 @@ class ChatServer
 	struct ClientInfo
 	{
 		std::string username;
-		COLORREF nameColor;
+		COLORREF nameColor;				
+		std::chrono::steady_clock::time_point lastTimeSentPingToServer;
 	};
 	std::unordered_map<std::string, std::function<void(SOCKET, rapidjson::Document&)>> networkActionMap;
 	std::unordered_map<SOCKET, ClientInfo> clientInfoMap;
@@ -32,6 +33,7 @@ public:
 	ChatServer(WSADATA* wsa);	
 	void SetDetails(std::wstring ip, u_short port);
 	void OnJsonReceived(SOCKET sock, char* json, int32_t jsonSize);
+	void OnJsonReceived(SOCKET sock, rapidjson::Document& doc);
 	void SendJsonToClient(SOCKET client, std::string json);
 	void SendJsonToAllClients(std::string json, std::unordered_set<SOCKET>* exceptions = NULL);
 

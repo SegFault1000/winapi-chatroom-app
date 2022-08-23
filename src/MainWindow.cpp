@@ -7,35 +7,11 @@
 #define VK_ENTER VK_RETURN
 
 LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+LRESULT CALLBACK TextEditWndProc(HWND textEdit, UINT msg, WPARAM wParam, LPARAM lParam);
 
-LRESULT CALLBACK TextEditWndProc(HWND textEdit, UINT msg, WPARAM wParam, LPARAM lParam)
-{	
-	switch(msg)
-	{
-	case WM_CHAR:	
-		if(wParam == VK_RETURN && !(GetAsyncKeyState(VK_LSHIFT) & 0x8000))
-		{						
-			MainWindow* window = (MainWindow*)GetPropW(textEdit, L"WINDOW");			
-			WCHAR buffer[4000];
-			int length = GetWindowTextW(textEdit, buffer, 4000);		
-			if(length > 0 && window->chatClient != NULL)
-			{				
-				window->chatClient->SendChatMessage(buffer, length);
-				SetWindowTextW(textEdit, L"");
-				SendMessageW(textEdit, EM_SETSEL, 0,0);			
-				window->reChatBox.ScrollToBottom();
-			}
-			wParam = 0;									
-		}
-	break;
-	case WM_LBUTTONDOWN:
-		SetFocus(textEdit);
-	break;
-	}
-	return CallWindowProcW((WNDPROC)GetPropW(textEdit, L"OLDPROC"), textEdit, msg, wParam, lParam);
-}
 
-MainWindow* window = nullptr;
+
+//MainWindow* window = nullptr;
 
 bool MainWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, MainWindow* out) {	
 	//::window = this;
@@ -129,10 +105,40 @@ bool MainWindow::SetMemberListFromJsonArray(rapidjson::Value::Array& arr)
 	}
 }
 
-bool MainWindow::AppendToMemberList(const char* memberName, int memberNameLen) {
+void MainWindow::AppendToMemberList(const char* memberName, int memberNameLen) {
 	std::scoped_lock<std::mutex> lck{lbMembersMutex};	
 	std::wstring memberNameW = util::mbstowcs(memberName, memberNameLen);
 	SendMessageW(lbMembers, LB_ADDSTRING, 0, (LPARAM)memberNameW.data());
+	
+}
+void MainWindow::RemoveFromMemberList(const char* memberName, int memberNameLen)
+{
+	std::scoped_lock<std::mutex> lck{lbMembersMutex};	
+	std::wstring memberNameW = util::mbstowcs(memberName, memberNameLen);
+	int index = SendMessageW(lbMembers, LB_FINDSTRING, -1, (LPARAM)memberNameW.data());
+	if(index == LB_ERR)
+		return;
+	SendMessageW(lbMembers, LB_DELETESTRING, index, 0);
+}
+void MainWindow::AppendToMemberList(const wchar_t* memberNameW) {
+	std::scoped_lock<std::mutex> lck{lbMembersMutex};	
+	SendMessageW(lbMembers, LB_ADDSTRING, 0, (LPARAM)memberNameW);
+	
+}
+void MainWindow::RemoveFromMemberList(const wchar_t* memberNameW)
+{
+	std::scoped_lock<std::mutex> lck{lbMembersMutex};	
+	int index = SendMessageW(lbMembers, LB_FINDSTRING, -1, (LPARAM)memberNameW);
+	if(index == LB_ERR)
+		return;
+	SendMessageW(lbMembers, LB_DELETESTRING, index, 0);
+}
+
+void MainWindow::Logout() 
+{
+	if(!chatClient)
+		return;
+	chatClient->Logout();
 }
 
 
@@ -166,8 +172,9 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 	auto ShowMessageBox = std::bind(util::ShowMessageBox, 
 		std::placeholders::_1, std::placeholders::_2, 0);
   switch (msg)
-  {
+  {		
   case WM_DESTROY:
+		window->Logout();	
     PostQuitMessage(0);
     break;
 	case WM_PAINT:
@@ -232,6 +239,32 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
+LRESULT CALLBACK TextEditWndProc(HWND textEdit, UINT msg, WPARAM wParam, LPARAM lParam)
+{	
+	switch(msg)
+	{
+	case WM_CHAR:	
+		if(wParam == VK_RETURN && !(GetAsyncKeyState(VK_LSHIFT) & 0x8000))
+		{						
+			MainWindow* window = (MainWindow*)GetPropW(textEdit, L"WINDOW");			
+			WCHAR buffer[4000];
+			int length = GetWindowTextW(textEdit, buffer, 4000);		
+			if(length > 0 && window->chatClient != NULL)
+			{				
+				window->chatClient->SendChatMessage(buffer, length);
+				SetWindowTextW(textEdit, L"");
+				SendMessageW(textEdit, EM_SETSEL, 0,0);			
+				window->reChatBox.ScrollToBottom();
+			}
+			wParam = 0;									
+		}
+	break;
+	case WM_LBUTTONDOWN:
+		SetFocus(textEdit);
+	break;
+	}
+	return CallWindowProcW((WNDPROC)GetPropW(textEdit, L"OLDPROC"), textEdit, msg, wParam, lParam);
+}
 
 
 
@@ -241,6 +274,7 @@ MainWindow& MainWindow::OnCreate(HWND hwnd) {
 			
 	auto oldTextEditProc = SetWindowLongW(textEdit, GWLP_WNDPROC, (LONG_PTR)TextEditWndProc);		
 	SetPropW(textEdit, L"OLDPROC", (HANDLE)oldTextEditProc);
+		
 		
 	if(!RichEdit::Create(hwnd, hInstance, 0,0,350,290, true, &reChatBox))
 	{
@@ -258,7 +292,7 @@ MainWindow& MainWindow::OnCreate(HWND hwnd) {
 	SetPropW(textEdit, L"CHATBOX", (HANDLE)&reChatBox);
 	SetPropW(textEdit, L"WINDOW", this);
 	btnSubmit = CreateWindowExW(0, L"BUTTON", L"Submit", WS_CHILD | WS_VISIBLE,
-	350,300,100,40, hwnd, (HMENU)ButtonId::Submit, hInstance, NULL);	
+	350,320,100,40, hwnd, (HMENU)ButtonId::Submit, hInstance, NULL);	
 	
 	return *this;
 }
