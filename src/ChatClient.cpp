@@ -8,6 +8,7 @@
 #include "RichEditWrapper.h"
 #include "MainWindow.h"
 #include "LoginWindow.h"
+
 bool ChatClient::Connect(const WCHAR* ip, u_short port) {
 	if(IsConnected())
 	{
@@ -48,7 +49,7 @@ bool ChatClient::Connect(const WCHAR* ip, u_short port) {
 		return false;
 	}
 	isConnected = true;
-	std::thread{&ChatClient::Run, this}.detach();
+	std::thread{&ChatClient::Run, this}.detach();	
 	return true;
 }
 
@@ -66,7 +67,14 @@ void ChatClient::SendChatMessage(WCHAR* str, int len) {
 	"\"content\" : \"{}\"\n}}";
 		
 	SendJsonToServer(fmt::format(jsonFormat, "User", message));
+
 	return;	
+}
+void ChatClient::Logout() 
+{
+	NetworkMessage msg;
+	msg.Add("type", NetworkMessage::MEMBER_LOGOUT);
+	SendJsonToServer(msg.ToJson());	
 }
 void ChatClient::SetUsername(WCHAR* str, int len){	
 	int length_required =	WideCharToMultiByte(CP_UTF8, 0, str, len, NULL,0,NULL, NULL);
@@ -81,6 +89,7 @@ void ChatClient::SetUsername(WCHAR* str, int len){
 }
 void ChatClient::SendJsonToServer(std::string json) {
 	#define ERROR_QUIT_IF(condition, message_to_send) if(condition){ MessageBoxW(0, message_to_send, L"Error", 0); return;}
+	std::scoped_lock<std::mutex> lck{sendMutex};
 	int32_t jsonSize = json.size();		
 	
 	int32_t sent_size = send(sock, (char*)&jsonSize, sizeof(jsonSize), 0);
@@ -109,15 +118,28 @@ void ChatClient::SetChatMessageCallback(std::function<void(std::wstring, std::ws
 
 void ChatClient::Run() {
 	char buffer [6000];
+	std::atomic_bool running = true;
+	std::thread pinging([this, &running]
+	{
+		NetworkMessage pingMsg;
+		pingMsg.Add("type", NetworkMessage::PING);
+		const std::string pingJson = pingMsg.ToJson();
+		while(running)
+		{
+			std::this_thread::sleep_for(std::chrono::seconds(2));
+			SendJsonToServer(pingJson);
+		}
+	});
 
-	while(true)
+	
+	while(running)
 	{		
 		int32_t jsonSize = -1;
 		int32_t recv_size = recv(sock, (char*)&jsonSize, sizeof(jsonSize), 0);
 		
 		if(recv_size == SOCKET_ERROR)
 		{
-			MessageBoxW(0, L"SOCKET_ERROR in ChatClient::Run()", L"Error", 0);
+			MessageBoxW(0, L"SOCKET_ERROR in ChatClient::Run()", L"Error", 0);			
 			std::exit(0);
 		}
 		while(recv_size < sizeof(jsonSize))
@@ -159,8 +181,7 @@ void ChatClient::Run() {
 		
 			}
 			catch(const std::exception& e)
-			{
-				//std::thread{ []{  }}.detach();
+			{				
 				//MessageBoxW(0, L"Failed to parse json.", L"Error", 0);
 			}			
 		}
@@ -204,22 +225,30 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 		std::string username = doc["username"].GetString();
 		mainWindow->AppendToMemberList(doc["username"].GetString(), doc["username"].GetStringLength());
 	};
+	networkActionMap[NetworkMessage::MEMBER_LIST_REMOVE] = [this](rapidjson::Document& doc)
+	{
+		if(!loginWindow)
+			return;
+		MainWindow* mainWindow = loginWindow->GetMainWindow();
+		if(!mainWindow)
+			return;		
+		const auto& rjValue = doc["username"];		
+		mainWindow->RemoveFromMemberList(rjValue.GetString(), rjValue.GetStringLength());
+		const std::wstring logoutChatMessage = fmt::format(L"[{}] has logged out.", 
+			util::mbstowcs(rjValue.GetString(), rjValue.GetStringLength()));
+		mainWindow->AppendChatBox(RGB(255,0,0), RichEdit::Bold, logoutChatMessage);
+	};
+	networkActionMap[NetworkMessage::MEMBER_DISCONNECT] = [this](rapidjson::Document& doc)
+	{
+		if(!loginWindow)
+			return;
+		MainWindow* mainWindow = loginWindow->GetMainWindow();
+		std::wstring usernameW = util::mbstowcs(doc["username"].GetString());		
+		mainWindow->RemoveFromMemberList(usernameW.data());
+		std::wstring chatMsg = fmt::format(L"[{}] has disconnected from the chat.", usernameW);
+		mainWindow->AppendChatBox(RGB(255,0,0), RichEdit::Bold, chatMsg);
+	};
 }
 
 
-		/*
-				if(type == "CHAT_MESSAGE")			
-				{
-					std::string username = doc["username"].GetString();
-					std::string content = doc["content"].GetString();
-
-					int length_required = MultiByteToWideChar(CP_UTF8, 0, content.c_str(), content.size(), NULL, 0);
-					std::wstring contentW(length_required, L' ');
-					MultiByteToWideChar(CP_UTF8, 0, content.c_str(), content.size(), contentW.data(), length_required);
-
-					length_required = MultiByteToWideChar(CP_UTF8, 0, username.c_str(), username.size(), NULL, 0);
-					std::wstring usernameW(length_required, L' ');
-					MultiByteToWideChar(CP_UTF8, 0, username.c_str(), username.size(), usernameW.data(), length_required);
-					
-					chatMessageCallback(usernameW, contentW);										
-				}	*/
+		
