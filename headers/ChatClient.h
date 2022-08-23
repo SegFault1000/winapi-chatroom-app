@@ -5,6 +5,7 @@
 #include <string>
 #include <functional>
 #include <rapidjson/document.h>
+#include <mutex>
 
 class ChatClient
 {
@@ -14,6 +15,7 @@ class ChatClient
 	std::thread receptionThread;	
 	void Run();
 	std::unordered_map<std::string, std::function<void(rapidjson::Document&)>> networkActionMap;
+	std::mutex sendMutex;
 public:
 	class LoginWindow* loginWindow = NULL;
 	ChatClient(WSADATA* wsa);	
@@ -21,6 +23,7 @@ public:
 	bool IsConnected() const;	
 	void SendChatMessage(WCHAR* str, int len);
 	void SetUsername(WCHAR* str, int len);
+	void Logout();
 	void SendJsonToServer(std::string json);
 	
 	std::function<void(std::wstring, std::wstring)> chatMessageCallback;
