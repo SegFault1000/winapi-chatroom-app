@@ -250,5 +250,4 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 	};
 }
 
-
 		
