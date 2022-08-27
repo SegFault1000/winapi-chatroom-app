@@ -3,12 +3,7 @@
 #include "util.h"
 #include "NetworkMessages.h"
 #include "RichEditWrapper.h"
-class SocketContext
-{
-	int32_t jsonSize = -1;
-	int32_t currentReadOffset = 0;
-	char buffer[4000];
-};
+
 ChatServer::ChatServer(WSADATA* wsa){
 	networkActionMap[NetworkMessage::CHAT_MESSAGE] = [this](SOCKET client, rapidjson::Document& doc)
 	{	
