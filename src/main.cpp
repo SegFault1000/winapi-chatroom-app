@@ -6,6 +6,8 @@
 #include "LoginWindow.h"
 #include "ChatClient.h"
 #include "ChatServer.h"
+#include "util.h"
+//int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
 {	
 	if(!LoadLibrary(TEXT("Riched32.dll")))
@@ -19,6 +21,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 		MessageBoxW(0, L"Failed to initialize WSA.", L"Error", 0);
 		return 1;
 	}
+		
 	sizeof(WSADATA);
 	ChatClient chatClient{&wsa};
 	ChatServer chatServer{&wsa};
@@ -26,13 +29,15 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 	MainWindow::RegisterWindowClass(hInstance);
 	ServerWindow::RegisterWindowClass(hInstance);
   LoginWindow loginWindow; 	
+
+	loginWindow.SetChatClient(&chatClient);
+	loginWindow.SetChatServer(&chatServer);
 	if(!LoginWindow::Create(hInstance, 300,300, 600, 400, &loginWindow))
 	{
 		MessageBoxW(0, L"Failed to create MainWindow", L"Error", 0);
 		return 1;
-	}	
-	loginWindow.SetChatClient(&chatClient);
-	loginWindow.SetChatServer(&chatServer);
+	}			
+	
 	WPARAM returnValue = loginWindow.Run();
 
 	WSACleanup();	

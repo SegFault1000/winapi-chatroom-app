@@ -225,7 +225,7 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 		std::string username = doc["username"].GetString();
 		mainWindow->AppendToMemberList(doc["username"].GetString(), doc["username"].GetStringLength());
 	};
-	networkActionMap[NetworkMessage::MEMBER_LIST_REMOVE] = [this](rapidjson::Document& doc)
+	networkActionMap[NetworkMessage::MEMBER_LOGOUT] = [this](rapidjson::Document& doc)
 	{
 		if(!loginWindow)
 			return;
@@ -234,7 +234,7 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 			return;		
 		const auto& rjValue = doc["username"];		
 		mainWindow->RemoveFromMemberList(rjValue.GetString(), rjValue.GetStringLength());
-		const std::wstring logoutChatMessage = fmt::format(L"[{}] has logged out.", 
+		const std::wstring logoutChatMessage = fmt::format(L"[{}] has logged out.\n", 
 			util::mbstowcs(rjValue.GetString(), rjValue.GetStringLength()));
 		mainWindow->AppendChatBox(RGB(255,0,0), RichEdit::Bold, logoutChatMessage);
 	};
@@ -243,7 +243,7 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 		if(!loginWindow)
 			return;
 		MainWindow* mainWindow = loginWindow->GetMainWindow();
-		std::wstring usernameW = util::mbstowcs(doc["username"].GetString());		
+		std::wstring usernameW = util::mbsvtowcs(doc["username"].GetString());		
 		mainWindow->RemoveFromMemberList(usernameW.data());
 		std::wstring chatMsg = fmt::format(L"[{}] has disconnected from the chat.", usernameW);
 		mainWindow->AppendChatBox(RGB(255,0,0), RichEdit::Bold, chatMsg);

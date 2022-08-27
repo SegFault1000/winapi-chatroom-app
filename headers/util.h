@@ -2,9 +2,11 @@
 
 #include <unordered_map>
 #include <string>
+#include <string_view>
 #include <windef.h>
 #include <rapidjson/document.h>
 #include <future>
+#include <vector>
 #include <fmt/xchar.h>
 namespace util
 {
@@ -13,7 +15,6 @@ namespace util
 	void SetProperty(HWND hwnd, const std::wstring& propertyName, void* data);
 	std::future<int> ShowMessageBox(const std::string& title, const std::string& content, UINT utype = 0);
 
-	
 
 	template<class... Ts>
 	int ShowMessageBoxFmt(const std::wstring& title, const std::wstring& format, Ts&&... args)
@@ -31,6 +32,17 @@ namespace util
 	
 	std::string wcstombs(const wchar_t* str, int len);
 	std::wstring mbstowcs(const char* str, int len);
+	
 	std::string wcstombs(const std::wstring& str);
 	std::wstring mbstowcs(const std::string& str);
+
+	std::string wcsvtombs(std::wstring_view str);
+	std::wstring mbsvtowcs(std::string_view str);
+		
+
+	std::vector<std::string_view> split_sv(std::string_view str,
+																								const uint32_t maxSplit = -1);
+	std::vector<std::wstring_view> split_sv(std::wstring_view str,
+																								const uint32_t maxSplit = -1);
+
 }

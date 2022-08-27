@@ -6,6 +6,7 @@
 #include <windows.h>
 #include "util.h"
 #include "NetworkMessages.h"
+#include <iostream>
 LRESULT CALLBACK LoginWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	LoginWindow* window = (LoginWindow*)GetPropW(hwnd, L"LOGINWINDOW");
 	HINSTANCE hInstance = (HINSTANCE)GetPropW(hwnd, L"HINSTANCE");	
@@ -128,8 +129,8 @@ void LoginWindow::RegisterWindowClass(HINSTANCE hInstance) {
 	RegisterClassW(&wc);
 }
 
-bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, LoginWindow* out) {	
-
+bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, LoginWindow* out) 
+{			
 	HWND hwnd = out->hwnd = CreateWindowExW(0, L"LOGINWINDOW", L"Login", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 
 	300,300,300,170, NULL, NULL, hInst, NULL);
 	if(hwnd == NULL)
@@ -183,29 +184,76 @@ bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, L
 	out->tePort = tePort;
 
 	//Allow user to navigate with tab
-	SetPropW(teUsername, L"NEXT", (HANDLE)teIpAddress);
-	SetPropW(teIpAddress, L"NEXT", (HANDLE)tePort);
-	SetPropW(tePort, L"NEXT", (HANDLE)btnLogin);
-	SetPropW(btnLogin, L"NEXT", (HANDLE)btnServer);
-	SetPropW(btnServer, L"NEXT", (HANDLE)teUsername);
-
-	SetPropW(teUsername, L"PREV", (HANDLE)btnServer);
-	SetPropW(teIpAddress, L"PREV", (HANDLE)teUsername);
-	SetPropW(tePort, L"PREV", (HANDLE)teIpAddress);
-	SetPropW(btnLogin, L"PREV", (HANDLE)tePort);
-	SetPropW(btnServer, L"PREV", (HANDLE)btnLogin);
-
-	SetPropW(teUsername, L"OLDPROC", (HANDLE)SetWindowLongW(teUsername, GWLP_WNDPROC, (LONG)TabProc));
-	SetPropW(teIpAddress, L"OLDPROC", (HANDLE)SetWindowLongW(teIpAddress, GWLP_WNDPROC, (LONG)TabProc));
-	SetPropW(tePort, L"OLDPROC", (HANDLE)SetWindowLongW(tePort, GWLP_WNDPROC, (LONG)TabProc));
-	SetPropW(btnLogin, L"OLDPROC", (HANDLE)SetWindowLongW(btnLogin, GWLP_WNDPROC, (LONG)TabProc));
-	SetPropW(btnServer, L"OLDPROC", (HANDLE)SetWindowLongW(btnServer, GWLP_WNDPROC, (LONG)TabProc));
+	HWND childHwnds[]{teUsername, teIpAddress, tePort, btnLogin, btnServer};
+	for(int i = 0, len = std::size(childHwnds); i < len; ++i)
+	{
+		HWND child = childHwnds[i];		
+		SetPropW(child, L"NEXT", i == len - 1 ? childHwnds[0] : childHwnds[i + 1]);
+		SetPropW(child, L"PREV", i == 0 ? childHwnds[len - 1] : childHwnds[i - 1]);		
+		SetPropW(child, L"OLDPROC", (HANDLE)SetWindowLongW(child, GWLP_WNDPROC, (LONG)TabProc));
+	}
 
 	//so user can invoke button from the enter button
 	SetPropW(btnLogin, L"BUTTONID", (HANDLE)MAKEWPARAM(ButtonId::Login, BN_CLICKED));
 	SetPropW(btnServer, L"BUTTONID", (HANDLE)MAKEWPARAM(ButtonId::CreateServer, BN_CLICKED));
 	SetPropW(btnLogin, L"LOGINWINDOW", (HANDLE)out);
 	SetPropW(btnServer, L"LOGINWINDOW", (HANDLE)out);
+
+
+	#pragma region fill up details based off command-line args				
+	std::vector<std::wstring_view> vecCmdArgs = util::split_sv(GetCommandLineW());
+	const auto str_equals_any = [](auto sv, auto&&... args)
+	-> bool
+	{	
+		return ((sv == std::forward<decltype(args)>(args)) || ...);			
+	};
+	
+	constexpr int SHOULD_LOGIN = 1, SHOULD_CREATE = 2;
+	int actionToDo = 0;	
+	for(int i = 1, len = (int)vecCmdArgs.size(); i < len; ++i)
+	{
+		std::wstring_view& sv = vecCmdArgs[i];
+		if(i < len - 1)
+		{				
+			if(str_equals_any(sv, L"--user", L"-user", L"--username", L"-username"))
+			{													
+				
+				SetWindowTextW(teUsername, std::wstring(vecCmdArgs[i + 1]).data());
+				++i;
+				continue;
+			}
+			else if(str_equals_any(sv, L"-ip", L"--ip", L"-IP", L"--IP"))
+			{
+				SetWindowTextW(teIpAddress, std::wstring(vecCmdArgs[i + 1]).data());
+				++i;
+				continue;
+			}				
+		}
+		if(sv == L"-server" || sv == L"--server")
+		{
+			actionToDo = SHOULD_CREATE;
+			continue;
+		}
+		else if(sv == L"-login" || sv == L"--login")
+		{
+			actionToDo = SHOULD_LOGIN;
+			continue;
+		}
+		
+		std::wcout << fmt::format(
+		L"Warning. Unknown command-line argument \"{}\". " 
+		L"Please use \"-ip\", \"-port\" or \"-server.\"", sv);
+	}//end of for loop
+	if(actionToDo == SHOULD_CREATE)
+	{
+		SendMessageW(hwnd, WM_COMMAND, MAKEWORD(LoginWindow::ButtonId::CreateServer, 0), NULL);
+	}
+	else if(actionToDo == SHOULD_LOGIN)
+	{
+		SendMessageW(hwnd, WM_COMMAND, MAKEWORD(LoginWindow::ButtonId::Login, 0), NULL);
+	}	
+	#pragma endregion
+
 	return true;
 }
 
@@ -219,8 +267,7 @@ LoginWindow& LoginWindow::SetChatServer(ChatServer* chatServer){
 	this->chatServer->loginWindow = this;
 }
 
-WPARAM LoginWindow::Run() {
-	ShowWindow(hwnd, SW_SHOW);	
+WPARAM LoginWindow::Run() {	
 	UpdateWindow(hwnd);
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0))

@@ -48,7 +48,7 @@ void ServerWindow::RegisterWindowClass(HINSTANCE hInstance) {
 LRESULT CALLBACK ServerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
 	switch(msg)
 	{
-	case WM_QUIT:
+	case WM_DESTROY:
 		PostQuitMessage(0);
 	break;
 	}

@@ -21,6 +21,11 @@ public:
 	inline static const std::string MEMBER_DISCONNECT = "MEMBER_DISCONNECT";
 	inline static const std::string MEMBER_LOGOUT= "MEMBER_LOGOUT";
 
+	inline static const std::string MEMBER_KICK = "MEMBER_KICK";
+	inline static const std::string MEMBER_BAN = "MEMBER_LOGOUT";
+	inline static const std::string MEMBER_MUTE = "MEMBER_MUTE";
+
+
 	enum class ErrorFlag : int32_t
 	{
 		Success, SocketError, ConnectionFail, InvalidJson

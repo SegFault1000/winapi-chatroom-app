@@ -76,7 +76,7 @@ ChatServer::ChatServer(WSADATA* wsa){
 		);
 		reServerLog->AppendText(RGB(0,0,0), RichEdit::None, logoutMsg.data());
 		NetworkMessage msg;
-		msg.Add("type", NetworkMessage::MEMBER_LIST_REMOVE);
+		msg.Add("type", NetworkMessage::MEMBER_LOGOUT);
 		msg.Add("username", username);
 		SendJsonToAllClients(msg.ToJson());
 	};
@@ -122,10 +122,10 @@ void ChatServer::Run() {
 						FD_CLR(clientSock, &master);
 						clientsVectorMutex.lock();
 						clients.erase(clients.begin() + i);
-						clientsVectorMutex.unlock();
+						clientsVectorMutex.unlock();							
 						NetworkMessage msg;
 						msg.Add("type", NetworkMessage::MEMBER_DISCONNECT);
-						msg.Add("username", info.username);						
+						msg.Add("username", info.username);									
 						SendJsonToAllClients(msg.ToJson());												
 						continue;
 					}					
