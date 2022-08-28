@@ -88,7 +88,7 @@ void ChatClient::SetUsername(WCHAR* str, int len){
 	SendJsonToServer(util::DocumentToJson(doc));
 }
 void ChatClient::SendJsonToServer(std::string json) {
-	#define ERROR_QUIT_IF(condition, message_to_send) if(condition){ MessageBoxW(0, message_to_send, L"Error", 0); return;}
+	#define ERROR_QUIT_IF(condition, message_to_send) if(condition){ std::wcout << L"Error: " << message_to_send; return;}
 	std::scoped_lock<std::mutex> lck{sendMutex};
 	int32_t jsonSize = json.size();		
 	
@@ -117,6 +117,7 @@ void ChatClient::SetChatMessageCallback(std::function<void(std::wstring, std::ws
 }
 
 void ChatClient::Run() {
+	std::wcout << L"Client started recieving: \n";
 	char buffer [6000];
 	std::atomic_bool running = true;
 	std::thread pinging([this, &running]
@@ -133,13 +134,15 @@ void ChatClient::Run() {
 
 	
 	while(running)
-	{		
+	{				
 		int32_t jsonSize = -1;
 		int32_t recv_size = recv(sock, (char*)&jsonSize, sizeof(jsonSize), 0);
 		
 		if(recv_size == SOCKET_ERROR)
 		{
-			MessageBoxW(0, L"SOCKET_ERROR in ChatClient::Run()", L"Error", 0);			
+			running.store(false);
+				pinging.join();
+				MessageBoxW(0, L"There was an error communicating with server. (section #2)\n", L"ERROR", 0);
 			std::exit(0);
 		}
 		while(recv_size < sizeof(jsonSize))
@@ -148,9 +151,12 @@ void ChatClient::Run() {
 			int32_t receivedBytes = recv(sock, (char*)&jsonSize + recv_size, bytesLeft, 0);
 			if(receivedBytes == SOCKET_ERROR)
 			{
-				MessageBoxW(0, L"There was an error communicating with the server", L"Error", 0);				
-				return;
+				running.store(false);
+				pinging.join();
+				MessageBoxW(0, L"There was an error communicating with server. (section #2)\n", L"ERROR", 0);
+				std::exit(0);
 			}
+			
 			recv_size += receivedBytes;
 		}						
 
@@ -161,8 +167,15 @@ void ChatClient::Run() {
 			int32_t receivedBytes = recv(sock, buffer + recv_size, bytesLeft, 0);
 			if(receivedBytes == SOCKET_ERROR)
 			{
-				MessageBoxW(0, L"There was an error communicating with the server", L"Error", 0);				
-				return;
+				running.store(false);
+				pinging.join();
+				MessageBoxW(0, L"There was an error communicating with server. (section #3)\n", L"ERROR", 0);
+				
+				std::exit(0);
+			}
+			if(receivedBytes == 0)
+			{
+				std::wcout << L"Received bytes were 0\n";
 			}
 			recv_size += receivedBytes;
 		}
@@ -182,12 +195,12 @@ void ChatClient::Run() {
 			}
 			catch(const std::exception& e)
 			{				
-				//MessageBoxW(0, L"Failed to parse json.", L"Error", 0);
+				std::wcout << L"Failed to parse json.\n";
 			}			
 		}
 		else
 		{
-			//MessageBoxW(0, L"Not a valid json object...", L"Error", 0);
+			std::wcout << L"Not a valid json object...\n";
 		}
 	} //end of loop
 }
@@ -227,6 +240,7 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 	};
 	networkActionMap[NetworkMessage::MEMBER_LOGOUT] = [this](rapidjson::Document& doc)
 	{
+		std::wcout << L"Received logout message\n";
 		if(!loginWindow)
 			return;
 		MainWindow* mainWindow = loginWindow->GetMainWindow();

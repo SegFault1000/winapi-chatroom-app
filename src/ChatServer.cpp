@@ -1,19 +1,16 @@
 #include "ChatServer.h"
+#include <iostream>
 #include <thread>
 #include "util.h"
 #include "NetworkMessages.h"
 #include "RichEditWrapper.h"
-class SocketContext
-{
-	int32_t jsonSize = -1;
-	int32_t currentReadOffset = 0;
-	char buffer[4000];
-};
+
 ChatServer::ChatServer(WSADATA* wsa){
 	networkActionMap[NetworkMessage::CHAT_MESSAGE] = [this](SOCKET client, rapidjson::Document& doc)
 	{	
 		using util::Json_AddMember;	
 		ClientInfo& info = clientInfoMap[client];
+		
 		NetworkMessage msg;
 		msg.Add("type", NetworkMessage::CHAT_MESSAGE)
 		.Add("content", doc["content"].GetString())
@@ -29,8 +26,9 @@ ChatServer::ChatServer(WSADATA* wsa){
 	{		
 		//1 - Store the user's desired name
 		ClientInfo& clientInfo = clientInfoMap[client];
+		clientInfo.flags |= ClientInfo::Flag::LoggedIn;
 		clientInfo.username = doc["username"].GetString();	
-		clientInfo.lastTimeSentPingToServer = std::chrono::steady_clock::now();
+		clientInfo.lastTimeSentPingToServer = Clock::now();
 		//2 - Log to server window:
 		std::wstring usernameW = util::mbstowcs(doc["username"].GetString(), doc["username"].GetStringLength());
 		Log(fmt::format(L"New client: {}. Socket ID#{}.\n", usernameW, client));				
@@ -66,19 +64,14 @@ ChatServer::ChatServer(WSADATA* wsa){
 
 	networkActionMap[NetworkMessage::PING] = [this](SOCKET client, rapidjson::Document& doc)
 	{
-		clientInfoMap[client].lastTimeSentPingToServer = std::chrono::steady_clock::now();
+		clientInfoMap[client].lastTimeSentPingToServer = Clock::now();
 	};
 	networkActionMap[NetworkMessage::MEMBER_LOGOUT] = [this](SOCKET client, rapidjson::Document& doc)
-	{		
-		std::string& username = clientInfoMap[client].username;
-		std::wstring logoutMsg = fmt::format(L"\"{}\" (Socket ID #{}) has logged out.\n",
-			util::mbstowcs(username), client
-		);
-		reServerLog->AppendText(RGB(0,0,0), RichEdit::None, logoutMsg.data());
-		NetworkMessage msg;
-		msg.Add("type", NetworkMessage::MEMBER_LOGOUT);
-		msg.Add("username", username);
-		SendJsonToAllClients(msg.ToJson());
+	{				
+		if(auto it = clientInfoMap.find(client); it != clientInfoMap.end())
+		{								
+			it->second.flags &= ~ClientInfo::Flag::LoggedIn;
+		}				
 	};
 }
 
@@ -94,7 +87,7 @@ void ChatServer::Run() {
 	FD_SET(listener, &master);
 	while(true)
 	{
-		const auto now = std::chrono::steady_clock::now();
+		const auto now = Clock::now();
 		fd_set copy = master;
 		int socketCount = select(0, &copy, NULL, NULL, NULL);
 		for(int i = 0; i < socketCount; ++i)
@@ -110,25 +103,52 @@ void ChatServer::Run() {
 			}
 			else
 			{
+				using IT = decltype(clientInfoMap.begin());
+				const auto RemoveClient = [this, &master](SOCKET client, IT& mapIterator)
+				{
+					FD_CLR(client, &master);
+					clientsVectorMutex.lock();
+					auto it = std::find(clients.begin(), clients.end(), client);
+					if(it != clients.end())
+						clients.erase(it);					
+					clientsVectorMutex.unlock();	
+					mapIterator = clientInfoMap.erase(mapIterator);					
+				};
 				#pragma region check if client is no longer responding
 				auto it = clientInfoMap.find(clientSock);
 				if(it != clientInfoMap.end())
 				{
-					ClientInfo& info = it->second;
+					ClientInfo& info = it->second;					
 					auto diff = std::chrono::duration_cast<std::chrono::seconds>(info.lastTimeSentPingToServer - now).count();
 
 					if(diff >= 10)
 					{
-						FD_CLR(clientSock, &master);
-						clientsVectorMutex.lock();
-						clients.erase(clients.begin() + i);
-						clientsVectorMutex.unlock();							
+						RemoveClient(clientSock, it);
 						NetworkMessage msg;
 						msg.Add("type", NetworkMessage::MEMBER_DISCONNECT);
 						msg.Add("username", info.username);									
 						SendJsonToAllClients(msg.ToJson());												
 						continue;
-					}					
+					}	
+					else if(!(info.flags & ClientInfo::Flag::LoggedIn))				
+					{						
+						const std::string username = std::move(info.username);
+						RemoveClient(clientSock, it);						
+						std::wstring logoutMsg = fmt::format
+						(
+							L"\"{}\" (Socket ID #{}) has logged out.\n",
+							util::mbstowcs(username), 
+							clientSock
+						);		
+																												
+						reServerLog->AppendText(RGB(0,0,0), RichEdit::None, logoutMsg.data());
+						std::string json = NetworkMessage()
+							.Add("type", NetworkMessage::MEMBER_LOGOUT)
+							.Add("username", username)
+							.ToJson();						
+						SendJsonToAllClients(json);						
+						continue;
+					}
 				}
 				#pragma endregion
 				char buffer[4000]{};
@@ -218,16 +238,17 @@ void ChatServer::OnJsonReceived(SOCKET sock, rapidjson::Document& doc) {
 	}	
 }
 
-void ChatServer::SendJsonToClient(SOCKET client, std::string json) {
+void ChatServer::SendJsonToClient(SOCKET client, const std::string& json) {
 	int32_t jsonSize = json.size();
 	int32_t sent_size = send(client, (const char*)&jsonSize, sizeof(jsonSize), 0);
 	while(sent_size < sizeof(jsonSize))
 	{
 		int32_t bytesLeft = sizeof(jsonSize) - sent_size;
 		int32_t bytesReceived = send(client, (const char*)&jsonSize + sent_size, bytesLeft, 0 );
-		if(bytesReceived <= 0)
+		if(bytesReceived == SOCKET_ERROR)
 		{
-			continue;
+			std::wcout << L"Failed to send json size to " << client << '\n';
+			return;
 		}
 		sent_size += bytesReceived;			
 	}
@@ -237,46 +258,29 @@ void ChatServer::SendJsonToClient(SOCKET client, std::string json) {
 	{
 		int32_t bytesLeft = jsonSize - sent_size;
 		int32_t bytesReceived = send(client, json.data() + sent_size, bytesLeft, 0);
-		if(bytesReceived <= 0)
+		if(bytesReceived == SOCKET_ERROR)
 		{
-			continue;
+			std::wcout << L"Failed to send json to " << client << '\n';
+			return;
 		}
 		sent_size += bytesReceived;			
 	}
 }
+void ChatServer::SendJsonToAllClients(const std::string& json, const std::unordered_set<SOCKET>& exceptions) {
+	SendJsonToAllClients(json, &exceptions);
+}
 
-void ChatServer::SendJsonToAllClients(std::string json, std::unordered_set<SOCKET>* exceptions) {
-	clientsVectorMutex.lock();
-	const int32_t jsonSize = json.size();
+void ChatServer::SendJsonToAllClients(const std::string& json, const std::unordered_set<SOCKET>* const exceptions) {
+	clientsVectorMutex.lock();		
 	for(size_t i = 0; i < clients.size(); ++i)
 	{
-		if(exceptions != NULL && exceptions->find(clients[i]) != exceptions->end())
+		if(exceptions)
 		{
-			continue;
-		}
-		int32_t sent_size = send(clients[i], (const char*)&jsonSize, sizeof(jsonSize), 0);
-		while(sent_size < sizeof(jsonSize))
-		{
-			int32_t bytesLeft = sizeof(jsonSize) - sent_size;
-			int32_t bytesReceived = send(clients[i], (const char*)&jsonSize + sent_size, bytesLeft, 0 );
-			if(bytesReceived <= 0)
-			{
+			auto it = exceptions->find(clients[i]);
+			if(it != exceptions->end())
 				continue;
-			}
-			sent_size += bytesReceived;			
 		}
-
-		sent_size = send(clients[i], json.data(), jsonSize, 0);
-		while(sent_size < jsonSize)
-		{
-			int32_t bytesLeft = jsonSize - sent_size;
-			int32_t bytesReceived = send(clients[i], json.data() + sent_size, bytesLeft, 0);
-			if(bytesReceived <= 0)
-			{
-				continue;
-			}
-			sent_size += bytesReceived;			
-		}
+		SendJsonToClient(clients[i], json);
 	}
 	clientsVectorMutex.unlock();
 }
