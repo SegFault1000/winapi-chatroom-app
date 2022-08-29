@@ -288,16 +288,15 @@ void ChatServer::SendJsonToAllClients(const std::string& json, const std::unorde
 
 #include <RichEditWrapper.h>
 
-void ChatServer::Log(std::string content) {
-	std::scoped_lock<std::mutex> lck{logMutex};
-	int length_required = MultiByteToWideChar(CP_UTF8, NULL, content.data(), -1, NULL, 0);
-	WCHAR* buffer = new WCHAR[length_required + 1];	
-	MultiByteToWideChar(CP_UTF8, NULL, content.data(), -1, buffer, length_required);
-	reServerLog->AppendText(RGB(0,0,0), RichEdit::None, buffer);	
-	
-	reServerLog->ScrollToBottom();
+void ChatServer::Log(std::string content) 
+{
+	std::scoped_lock<std::mutex> lck{logMutex};	
+	std::wstring contentW = util::mbstowcs(content);
+	reServerLog->AppendText(RGB(0,0,0), RichEdit::None, contentW.data());		
+	reServerLog->ScrollToBottom();	
 }
-void ChatServer::Log(std::wstring content) {
+void ChatServer::Log(std::wstring content) 
+{
 	std::scoped_lock<std::mutex> lck{logMutex};	
 	reServerLog->AppendText(RGB(0,0,0), RichEdit::None, content.data());
 	reServerLog->ScrollToBottom();
