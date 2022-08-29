@@ -28,21 +28,22 @@ bool ServerWindow::Create(HINSTANCE hInstance, int x, int y, int width, int heig
 	return true;
 }
 
-void ServerWindow::RegisterWindowClass(HINSTANCE hInstance) {
+void ServerWindow::RegisterWindowClass(HINSTANCE hInstance) 
+{
 	if(windowClassRegistered)
 		return;
 	windowClassRegistered = true;
 	WNDCLASSW wc;
-  wc.style = CS_HREDRAW | CS_VREDRAW;
-  wc.cbClsExtra = 0;
-  wc.cbWndExtra = 0;
-  wc.lpszClassName = L"SERVERWINDOW";
-  wc.hInstance = hInstance;
-  wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
-  wc.lpszMenuName = NULL;
-  wc.lpfnWndProc = ServerWindowProc;
-  wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-  wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.lpszClassName = L"SERVERWINDOW";
+	wc.hInstance = hInstance;
+	wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
+	wc.lpszMenuName = NULL;
+	wc.lpfnWndProc = ServerWindowProc;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	RegisterClassW(&wc);
 }
 LRESULT CALLBACK ServerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
