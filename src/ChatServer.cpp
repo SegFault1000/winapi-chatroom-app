@@ -106,7 +106,7 @@ void ChatServer::Run() {
 			else
 			{
 				using IT = decltype(clientInfoMap.begin());
-				const auto RemoveClient = [this, &master, i](SOCKET client, IT& mapIterator)
+				const auto RemoveClient = [this, &master](SOCKET client, IT& mapIterator)
 				{
 					FD_CLR(client, &master);		
 					auto it = std::find(clients.begin(), clients.end(), client);
