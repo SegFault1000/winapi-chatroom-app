@@ -9,7 +9,8 @@
 #include "MainWindow.h"
 #include "LoginWindow.h"
 
-bool ChatClient::Connect(const WCHAR* ip, u_short port) {
+bool ChatClient::Connect(const WCHAR* ip, u_short port) 
+{
 	if(IsConnected())
 	{
 		MessageBoxW(0, L"Tried to connect twice.\nFailed.", L"Warning", 0);
@@ -57,17 +58,13 @@ bool ChatClient::IsConnected() const
 {
 	return isConnected;
 }
-void ChatClient::SendChatMessage(WCHAR* str, int len) {	
-	int length_required =	WideCharToMultiByte(CP_UTF8, 0, str, len, NULL,0,NULL, NULL);
-	std::string message(length_required, ' ');
-	WideCharToMultiByte(CP_UTF8, 0, str, len, message.data(), length_required, NULL, NULL);
-
-	const char* jsonFormat = "{{\n\"type\" : \"CHAT_MESSAGE\",\n"
-	"\"username\" : \"{}\",\n"
-	"\"content\" : \"{}\"\n}}";
-		
-	SendJsonToServer(fmt::format(jsonFormat, "User", message));
-
+void ChatClient::SendChatMessage(WCHAR* str, int len) 
+{	
+	NetworkMessage msg;
+	msg.Add("type", NetworkMessage::CHAT_MESSAGE);
+	msg.Add("username", "User");
+	msg.Add("content", util::wcstombs(str, len));
+	SendJsonToServer(msg.ToJson());
 	return;	
 }
 void ChatClient::Logout() 
@@ -76,18 +73,15 @@ void ChatClient::Logout()
 	msg.Add("type", NetworkMessage::MEMBER_LOGOUT);
 	SendJsonToServer(msg.ToJson());	
 }
-void ChatClient::SetUsername(WCHAR* str, int len){	
-	int length_required =	WideCharToMultiByte(CP_UTF8, 0, str, len, NULL,0,NULL, NULL);
-	std::string message(length_required, ' ');
-	WideCharToMultiByte(CP_UTF8, 0, str, len, message.data(), length_required, NULL, NULL);
-
-	
-	rapidjson::Document doc(rapidjson::kObjectType);
-	util::Json_AddMember(doc, "type", NetworkMessage::SET_USERNAME);	
-	util::Json_AddMember(doc, "username", message);				
-	SendJsonToServer(util::DocumentToJson(doc));
+void ChatClient::SetUsername(WCHAR* str, int len)
+{		
+	NetworkMessage msg;
+	msg.Add("type", NetworkMessage::SET_USERNAME);
+	msg.Add("username", util::wcstombs(str, len));			
+	SendJsonToServer(msg.ToJson());
 }
-void ChatClient::SendJsonToServer(std::string json) {
+void ChatClient::SendJsonToServer(std::string json) 
+{
 	#define ERROR_QUIT_IF(condition, message_to_send) if(condition){ std::wcout << L"Error: " << message_to_send; return;}
 	std::scoped_lock<std::mutex> lck{sendMutex};
 	int32_t jsonSize = json.size();		

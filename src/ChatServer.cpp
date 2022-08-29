@@ -7,8 +7,7 @@
 
 ChatServer::ChatServer(WSADATA* wsa){
 	networkActionMap[NetworkMessage::CHAT_MESSAGE] = [this](SOCKET client, rapidjson::Document& doc)
-	{	
-		using util::Json_AddMember;	
+	{			
 		ClientInfo& info = clientInfoMap[client];
 		
 		NetworkMessage msg;
@@ -49,7 +48,7 @@ ChatServer::ChatServer(WSADATA* wsa){
 		auto allocator = memberListDoc.GetAllocator();
 		util::Json_AddMember(memberListDoc, "type", NetworkMessage::MEMBER_LIST);
 		rapidjson::Value list(rapidjson::kArrayType);
-		clientsVectorMutex.lock();
+		
 		for(size_t i = 0; i < clients.size(); ++i)
 		{
 			std::string clientUsername = clientInfoMap[clients[i]].username;
@@ -57,7 +56,7 @@ ChatServer::ChatServer(WSADATA* wsa){
 				clientUsername = "User";
 			list.PushBack(rapidjson::Value(clientUsername.data(), allocator), allocator);
 		}
-		clientsVectorMutex.unlock();
+		
 		memberListDoc.AddMember(rapidjson::Value("members", allocator), list, allocator);
 		SendJsonToClient(client, util::DocumentToJson(memberListDoc));
 	};
@@ -71,7 +70,11 @@ ChatServer::ChatServer(WSADATA* wsa){
 		if(auto it = clientInfoMap.find(client); it != clientInfoMap.end())
 		{								
 			it->second.flags &= ~ClientInfo::Flag::LoggedIn;
-		}				
+		}		
+		else
+		{
+			std::wcout << L"[MEMBER_LOGOUT]: Could not find client information associated with " << client << L'\n';
+		}		
 	};
 }
 
@@ -89,29 +92,28 @@ void ChatServer::Run() {
 	{
 		const auto now = Clock::now();
 		fd_set copy = master;
-		int socketCount = select(0, &copy, NULL, NULL, NULL);
+		int socketCount = select(0, &copy, NULL, NULL, NULL);		
+		
 		for(int i = 0; i < socketCount; ++i)
 		{
-			SOCKET clientSock = copy.fd_array[i];
+			SOCKET clientSock = copy.fd_array[i];			
 			if(clientSock == listener)
 			{
-				SOCKET newClient = accept(listener, NULL, NULL);				
-				FD_SET(newClient, &master);				
-				clientsVectorMutex.lock();
+				SOCKET newClient = accept(listener, NULL, NULL);
 				clients.push_back(newClient);
-				clientsVectorMutex.unlock();
+				FD_SET(newClient, &master);											
 			}
 			else
 			{
 				using IT = decltype(clientInfoMap.begin());
-				const auto RemoveClient = [this, &master](SOCKET client, IT& mapIterator)
+				const auto RemoveClient = [this, &master, i](SOCKET client, IT& mapIterator)
 				{
-					FD_CLR(client, &master);
-					clientsVectorMutex.lock();
+					FD_CLR(client, &master);		
 					auto it = std::find(clients.begin(), clients.end(), client);
 					if(it != clients.end())
-						clients.erase(it);					
-					clientsVectorMutex.unlock();	
+					{
+						clients.erase(it);
+					}
 					mapIterator = clientInfoMap.erase(mapIterator);					
 				};
 				#pragma region check if client is no longer responding
@@ -270,8 +272,8 @@ void ChatServer::SendJsonToAllClients(const std::string& json, const std::unorde
 	SendJsonToAllClients(json, &exceptions);
 }
 
-void ChatServer::SendJsonToAllClients(const std::string& json, const std::unordered_set<SOCKET>* const exceptions) {
-	clientsVectorMutex.lock();		
+void ChatServer::SendJsonToAllClients(const std::string& json, const std::unordered_set<SOCKET>* const exceptions) 
+{		
 	for(size_t i = 0; i < clients.size(); ++i)
 	{
 		if(exceptions)
@@ -281,8 +283,7 @@ void ChatServer::SendJsonToAllClients(const std::string& json, const std::unorde
 				continue;
 		}
 		SendJsonToClient(clients[i], json);
-	}
-	clientsVectorMutex.unlock();
+	}	
 }
 
 #include <RichEditWrapper.h>

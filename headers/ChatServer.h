@@ -7,12 +7,14 @@
 #include <rapidjson/document.h>
 #include <functional>
 #include <unordered_set>
+
 class ChatServer
-{
+{	
+	std::vector<SOCKET> clients;
+
 	WSADATA* wsa;
 	SOCKET listener;
-	std::vector<SOCKET> clients;
-	std::mutex clientsVectorMutex;
+	
 	void Run();	
 	bool isListening = false;
 	std::wstring ip = L"127.0.0.1";
