@@ -249,7 +249,7 @@ void ChatServer::SendJsonToClient(SOCKET client, const std::string& json) {
 		int32_t bytesReceived = send(client, (const char*)&jsonSize + sent_size, bytesLeft, 0 );
 		if(bytesReceived == SOCKET_ERROR)
 		{
-			std::wcout << L"Failed to send json size to " << client << '\n';
+			std::wcout << L"Failed to send json size to " << client << L'\n';
 			return;
 		}
 		sent_size += bytesReceived;			
@@ -262,7 +262,7 @@ void ChatServer::SendJsonToClient(SOCKET client, const std::string& json) {
 		int32_t bytesReceived = send(client, json.data() + sent_size, bytesLeft, 0);
 		if(bytesReceived == SOCKET_ERROR)
 		{
-			std::wcout << L"Failed to send json to " << client << '\n';
+			std::wcout << L"Failed to send json to " << client << L'\n';
 			return;
 		}
 		sent_size += bytesReceived;			
