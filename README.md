@@ -1,6 +1,6 @@
 # Winapi chatroom app
 
-This was made with winsock2, Win32 API, fmt and rapidjson.
+This application was made with <a href="https://docs.microsoft.com/en-us/windows/win32/winsock/windows-sockets-start-page-2">Winsock2</a>, <a href="https://docs.microsoft.com/en-us/windows/win32/">Win32 API</a>, <a href="https://github.com/fmtlib/fmt">fmt</a> and <a href="https://github.com/Tencent/rapidjson">Rapidjson</a>.
 Requires at least C++17.
 
 <img src="https://github.com/SegFault1000/WinapiChatRoomApp/blob/main/Screenshots/chatroomScreenshot.png?raw=true"/>
