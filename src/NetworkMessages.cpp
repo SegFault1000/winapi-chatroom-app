@@ -33,14 +33,16 @@ bool NetworkMessage::SendJson(SOCKET client) const
 	targetDoc->Accept(writer);
 	const char* const json = buffer.GetString();
 	
-	int32_t jsonSize = buffer.GetLength();
-	int32_t sent_size = send(client, (const char*)&jsonSize, sizeof(jsonSize), 0);
+	const int32_t jsonSize = buffer.GetLength();
+	const int32_t jsonSizeNetworkOrder = htonl(jsonSize);
+	
+	int32_t sent_size = send(client, (const char*)&jsonSizeNetworkOrder, sizeof(jsonSize), 0);
 	if(sent_size == SOCKET_ERROR)
 	  return false;
 	while(sent_size < sizeof(jsonSize))
 	{
 		int32_t bytesLeft = sizeof(jsonSize) - sent_size;
-		int32_t bytesReceived = send(client, (const char*)&jsonSize + sent_size, bytesLeft, 0 );
+		int32_t bytesReceived = send(client, (const char*)&jsonSizeNetworkOrder + sent_size, bytesLeft, 0 );
 		if(bytesReceived == SOCKET_ERROR)
 		{
 			return false;
@@ -91,6 +93,7 @@ NetworkMessage::ErrorFlag NetworkMessage::ReceiveJson(SOCKET sock, char* buffer,
 		}
 		recv_size += receivedBytes;
 	}						
+	jsonSize = ntohl(jsonSize);
 
 	recv_size = 0;		
 	while(recv_size < jsonSize)
