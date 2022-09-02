@@ -102,12 +102,12 @@ void ChatClient::Run()
 	std::wcout << L"Client started recieving: \n";	
 	running.store(true);
 
-	if(false)
+	
 	pingThread = std::thread([this]
 	{		
 		uint32_t failCount = 0;
 		NetworkMessage pingMsg;
-		pingMsg.Add("type", NetworkMessage::PING);	
+		pingMsg.AddStringRef("type", NetworkMessage::PING);	
 		bool askedToQuit = false;	
 		const int HIGH_FAIL_COUNT = 3;
 		while(running)
