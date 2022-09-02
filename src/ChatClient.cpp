@@ -28,10 +28,10 @@ bool ChatClient::Connect(const WCHAR* ip, u_short port)
 			fmt::format(L"Failed to create socket. Error code: {}", WSAGetLastError()).data(),
 			L"Error", 0);		
 		return false;
-	}	
-	std::string buffer = util::wcstombs(ip);
+	}		
 	sockaddr_in server;
 	server.sin_family = AF_INET;
+	std::string buffer = util::wcstombs(ip);
 	server.sin_addr.S_un.S_addr = inet_addr(buffer.data());
 	server.sin_port = htons(port);	
 
@@ -119,7 +119,7 @@ void ChatClient::Run()
 			}
 			else
 			{
-				failCount += failCount < HIGH_FAIL_COUNT; //only increment if failCount is smaller than 5
+				failCount += failCount < HIGH_FAIL_COUNT; //only increment if failCount is smaller than HIGH_FAIL_COUNT
 			}
 
 			if(failCount >= HIGH_FAIL_COUNT && !askedToQuit)
