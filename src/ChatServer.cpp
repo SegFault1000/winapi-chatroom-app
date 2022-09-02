@@ -5,7 +5,8 @@
 #include "NetworkMessages.h"
 #include "RichEditWrapper.h"
 
-ChatServer::ChatServer(WSADATA* wsa){
+ChatServer::ChatServer(WSADATA* wsa)
+{
 	networkActionMap[NetworkMessage::CHAT_MESSAGE] = [this](SOCKET client, rapidjson::Document& doc)
 	{			
 		ClientInfo& info = clientInfoMap[client];
@@ -19,7 +20,7 @@ ChatServer::ChatServer(WSADATA* wsa){
 
 	networkActionMap[NetworkMessage::SET_USERNAME] = [this](SOCKET client, rapidjson::Document& doc)
 	{		
-		
+		//pending implementation - will allow user to change username
 	};
 	networkActionMap[NetworkMessage::MEMBER_JOIN] = [this](SOCKET client, rapidjson::Document& doc)
 	{		
@@ -78,12 +79,14 @@ ChatServer::ChatServer(WSADATA* wsa){
 	};
 }
 
-void ChatServer::SetDetails(std::wstring ip, u_short port){
+void ChatServer::SetDetails(std::wstring ip, u_short port)
+{
 	this->ip = ip;
 	this->port = htons(port);
 }
 
-void ChatServer::Run() {	
+void ChatServer::Run() 
+{	
 	fd_set master;
 	FD_ZERO(&master);
 
@@ -123,12 +126,13 @@ void ChatServer::Run() {
 					ClientInfo& info = it->second;					
 					auto diff = std::chrono::duration_cast<std::chrono::seconds>(info.lastTimeSentPingToServer - now).count();
 
-					if(diff >= 10)
+					if(diff >= 10 && disconnectIfNoPings)
 					{
+						const std::string username = std::move(info.username);
 						RemoveClient(clientSock, it);
 						NetworkMessage msg;
 						msg.Add("type", NetworkMessage::MEMBER_DISCONNECT);
-						msg.Add("username", info.username);									
+						msg.Add("username", username);									
 						SendJsonToAllClients(msg.ToJson());												
 						continue;
 					}	
@@ -153,18 +157,19 @@ void ChatServer::Run() {
 					}
 				}
 				#pragma endregion
-				char buffer[4000]{};
+				char buffer[10'000];
 				NetworkMessage msg;
 				if(msg.ReceiveJson(clientSock, buffer, sizeof(buffer)) == NetworkMessage::ErrorFlag::Success)
 				{
 					OnJsonReceived(clientSock, msg.GetDocument());
-				}											
-			}
-		}
-	}
-}
+				}												
+			}//end of else
+		}//end of for(int i = 0; i < socketCount; ++i){
+	}//end of while(true){}
+}//end of void ChatServer::Run() {	
 
-bool ChatServer::Listen() {
+bool ChatServer::Listen() 
+{
 
 	listener = socket(AF_INET, SOCK_STREAM, 0);
 	sockaddr_in hint;
@@ -203,7 +208,8 @@ bool ChatServer::Listen() {
 
 bool ChatServer::IsListening(){ return isListening; }
 
-void ChatServer::OnJsonReceived(SOCKET sock, char* json, int32_t jsonSize) {	
+void ChatServer::OnJsonReceived(SOCKET sock, char* json, int32_t jsonSize) 
+{	
 	rapidjson::Document doc;
 	doc.Parse<rapidjson::kParseStopWhenDoneFlag>(json);
 	if(!doc.IsObject()) return;
@@ -222,7 +228,8 @@ void ChatServer::OnJsonReceived(SOCKET sock, char* json, int32_t jsonSize) {
 		Log(std::string("There was a json error:\n") + e.what());
 	}	
 }
-void ChatServer::OnJsonReceived(SOCKET sock, rapidjson::Document& doc) {		
+void ChatServer::OnJsonReceived(SOCKET sock, rapidjson::Document& doc) 
+{		
 	if(!doc.IsObject()) return;
 	try
 	{
@@ -240,7 +247,8 @@ void ChatServer::OnJsonReceived(SOCKET sock, rapidjson::Document& doc) {
 	}	
 }
 
-void ChatServer::SendJsonToClient(SOCKET client, const std::string& json) {
+void ChatServer::SendJsonToClient(SOCKET client, const std::string& json) 
+{
 	int32_t jsonSize = json.size();
 	int32_t sent_size = send(client, (const char*)&jsonSize, sizeof(jsonSize), 0);
 	while(sent_size < sizeof(jsonSize))
@@ -268,7 +276,8 @@ void ChatServer::SendJsonToClient(SOCKET client, const std::string& json) {
 		sent_size += bytesReceived;			
 	}
 }
-void ChatServer::SendJsonToAllClients(const std::string& json, const std::unordered_set<SOCKET>& exceptions) {
+void ChatServer::SendJsonToAllClients(const std::string& json, const std::unordered_set<SOCKET>& exceptions) 
+{
 	SendJsonToAllClients(json, &exceptions);
 }
 
@@ -285,8 +294,6 @@ void ChatServer::SendJsonToAllClients(const std::string& json, const std::unorde
 		SendJsonToClient(clients[i], json);
 	}	
 }
-
-#include <RichEditWrapper.h>
 
 void ChatServer::Log(std::string content) 
 {

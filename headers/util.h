@@ -9,12 +9,8 @@
 #include <vector>
 #include <fmt/xchar.h>
 namespace util
-{
-	inline std::unordered_map<HWND, std::unordered_map<std::wstring, void*>> hwndPropertyMap;	
-	void* GetProperty(HWND hwnd, const std::wstring& propertyName);
-	void SetProperty(HWND hwnd, const std::wstring& propertyName, void* data);
+{	
 	std::future<int> ShowMessageBox(const std::string& title, const std::string& content, UINT utype = 0);
-
 
 	template<class... Ts>
 	int ShowMessageBoxFmt(const std::wstring& title, const std::wstring& format, Ts&&... args)

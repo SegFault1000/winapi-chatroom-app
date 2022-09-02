@@ -7,80 +7,86 @@
 #include "util.h"
 #include "NetworkMessages.h"
 #include <iostream>
-LRESULT CALLBACK LoginWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-	LoginWindow* window = (LoginWindow*)GetPropW(hwnd, L"LOGINWINDOW");
-	HINSTANCE hInstance = (HINSTANCE)GetPropW(hwnd, L"HINSTANCE");	
+LRESULT CALLBACK LoginWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
+{
+	LoginWindow* const loginWindow = (LoginWindow*)GetPropW(hwnd, L"LOGINWINDOW");		
+	const HINSTANCE hInstance = (HINSTANCE)GetWindowLongW(hwnd, GWLP_HINSTANCE);
 
 	switch(msg)
 	{		
-	case WM_QUIT:
-		PostQuitMessage(0);
+	case WM_DESTROY:
+		PostQuitMessage(0);		
 	break;
 	case WM_COMMAND:
 	{		
-		if(!window || !hInstance)
+		if(!loginWindow || !hInstance)
 			break;
 		auto id = LOWORD(wParam);
 		if(id == LoginWindow::ButtonId::Login)
 		{			
+			
 			WCHAR ip[255]{};
-			GetWindowTextW(window->teIpAddress, ip, 255);
-			ChatClient* chatClient = window->chatClient;
+			GetWindowTextW(loginWindow->teIpAddress, ip, 255);			
 
 			WCHAR port[255]{};
-			GetWindowTextW(window->tePort, port, 255);
+			GetWindowTextW(loginWindow->tePort, port, 255);
 
 			ShowWindow(hwnd, SW_HIDE);			
-			
-			if(!window->mainWindow && !MainWindow::Create(hInstance, 300,300, 600,400, &window->mainWindow))
+
+			MainWindow* const mainWindow = &loginWindow->mainWindow;
+			if(mainWindow->IsNull() && !mainWindow->Create(hInstance, 300,300, 600,400))
 			{
 				MessageBoxW(0, L"Failed to create chat window", L"Error", 0);
 				std::exit(0);
 			}		
-				
-			window->mainWindow.SetChatClient(chatClient);				
+			ChatClient* const chatClient = loginWindow->chatClient;
+			mainWindow->SetChatClient(chatClient);				
 					
 			if(!chatClient->Connect(ip, _wtoi(port)))
 			{
-				ShowWindow(window->mainWindow.GetHwnd(), SW_HIDE);
+				ShowWindow(mainWindow->GetHwnd(), SW_HIDE);
 				ShowWindow(hwnd, SW_SHOW);
 				break;
 			}
 
 			WCHAR username[255];
-			int usernameLen = GetWindowTextW(window->teUsername, username, 255);
-			SetWindowTextW(window->mainWindow.GetHwnd(), fmt::format(L"Chatroom - [{}]", username).data());			
+			int usernameLen = GetWindowTextW(loginWindow->teUsername, username, 255);
+			SetWindowTextW(mainWindow->GetHwnd(), fmt::format(L"Chatroom - [{}]", username).data());			
 			
-			rapidjson::Document doc(rapidjson::kObjectType);
-			util::Json_AddMember(doc, "type", NetworkMessage::MEMBER_JOIN);
-			util::Json_AddMember(doc, "username", util::wcstombs(username));
-			chatClient->SendJsonToServer(util::DocumentToJson(doc));			
+			NetworkMessage joinMsg;
+			joinMsg.Add("type", NetworkMessage::MEMBER_JOIN);
+			joinMsg.Add("username", util::wcstombs(username));
+			chatClient->SendNetworkMessageToServer(joinMsg);			
 		}
 		else if(id == LoginWindow::ButtonId::CreateServer)
 		{
 			ShowWindow(hwnd, SW_HIDE);
-			
-			if(window->serverWindow.IsNull() && !ServerWindow::Create(hInstance, 300,300, 600,400, &window->serverWindow))
+			ServerWindow* const serverWindow = &loginWindow->serverWindow;
+			if(serverWindow->IsNull() && !serverWindow->Create(hInstance, 300,300, 600,400))
 			{
 				MessageBoxW(0, L"Failed to create server window", L"Error", 0);
 				std::exit(0);
 			}
 			WCHAR ip[255]{};
-			GetWindowTextW(window->teIpAddress, ip, 255);
-			ChatClient* chatClient = window->chatClient;
-
+			int charsRead = GetWindowTextW(loginWindow->teIpAddress, ip, 255);
+			//auto lastError = GetLastError();
 			WCHAR port[255]{};
-			GetWindowTextW(window->tePort, port, 255);
+			GetWindowTextW(loginWindow->tePort, port, 255);			
 			int portAsInt = _wtoi(port);
-			window->serverWindow.SetChatServer(window->chatServer);
-			window->chatServer->SetDetails(ip, portAsInt);
-			window->chatServer->reServerLog = window->serverWindow.GetReServerLog();
-			if(!window->chatServer->Listen())
-			{
+
+			ChatClient* const chatClient = loginWindow->chatClient;
+			ChatServer* const chatServer = loginWindow->chatServer;
+			serverWindow->SetChatServer(chatServer);
+			chatServer->SetDetails(ip, portAsInt);
+			chatServer->reServerLog = serverWindow->GetReServerLog();
+			if(!chatServer->Listen())
+			{				
+				std::wcout << fmt::format(L"Failed to listen with {}:{}\n", ip, port);
 				ShowWindow(hwnd, SW_SHOW);
+				ShowWindow(serverWindow->GetHwnd(), SW_HIDE);
 				break;				
 			}
-			window->chatServer->Log(fmt::format(L"Server is listening at {}:{}.\n", ip, portAsInt));
+			chatServer->Log(fmt::format(L"Server is listening at {}:{}.\n", ip, portAsInt));
 		}
 	}
 	break;	
@@ -110,7 +116,8 @@ LRESULT CALLBACK TabProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 	}
 	return CallWindowProc((WNDPROC)GetPropW(hwnd, L"OLDPROC"), hwnd, msg, wparam, lparam);
 }
-void LoginWindow::RegisterWindowClass(HINSTANCE hInstance) {
+void LoginWindow::RegisterWindowClass(HINSTANCE hInstance) 
+{
 	if(windowClassRegistered)
 		return;
 	windowClassRegistered = true;
@@ -129,9 +136,9 @@ void LoginWindow::RegisterWindowClass(HINSTANCE hInstance) {
 	RegisterClassW(&wc);
 }
 
-bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, LoginWindow* out) 
-{			
-	HWND hwnd = out->hwnd = CreateWindowExW(0, L"LOGINWINDOW", L"Login", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 
+bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height)
+{
+	hwnd = CreateWindowExW(0, L"LOGINWINDOW", L"Login", WS_OVERLAPPEDWINDOW | WS_VISIBLE, 
 	300,300,300,170, NULL, NULL, hInst, NULL);
 	if(hwnd == NULL)
 		return false;
@@ -145,27 +152,26 @@ bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, L
 		GetTextExtentPoint32W(GetDC(staticControl), buffer, size, &result);
 		return result;
 	};
-	auto CreateLabel = [hwnd, hInst](const WCHAR* text, int x, int y, int width = 200, int height = 50) -> HWND
+	auto CreateLabel = [this, hInst](const WCHAR* text, int x, int y, int width = 200, int height = 50) -> HWND
 	{
 		return CreateWindowExW(0, L"STATIC", text, WS_CHILD | WS_VISIBLE, x,y,width, height, hwnd, NULL, hInst, NULL);
 	};
-	auto CreateEdit = [hwnd, hInst](const WCHAR* text, int x, int y, int width = 120, int height = 50) -> HWND
+	auto CreateEdit = [this, hInst](const WCHAR* text, int x, int y, int width = 120, int height = 50) -> HWND
 	{
 		return CreateWindowExW(0, L"EDIT", text, WS_CHILD | WS_VISIBLE | WS_BORDER, x,y,width, height, hwnd, NULL, hInst, NULL);
 	};
 	#pragma endregion
 
-	SetPropW(hwnd, L"LOGINWINDOW", (HANDLE)out);
-	SetPropW(hwnd, L"HINSTANCE", hInst);
+	SetPropW(hwnd, L"LOGINWINDOW", (HANDLE)this);	
 	HWND usernameLabel = CreateLabel(L"Username:", 0, 0);
 	SIZE size = GetLabelTextSize(usernameLabel);	
-	HWND teUsername = CreateEdit(L"User", size.cx, 0, 120, size.cy);	
+	teUsername = CreateEdit(L"User", size.cx, 0, 120, size.cy);	
 	
 	HWND ipLabel = CreateLabel(L"IP: ", 0, size.cy + 10);
-	HWND teIpAddress = CreateEdit(L"127.0.0.1", size.cx, size.cy + 10, 120, size.cy);
+	teIpAddress = CreateEdit(L"127.0.0.1", size.cx, size.cy + 10, 120, size.cy);
 
 	HWND portLabel = CreateLabel(L"Port: ", 0, size.cy + 30);
-	HWND tePort = CreateWindowExW(0, L"EDIT", L"80", WS_CHILD | WS_VISIBLE | WS_BORDER, 
+	tePort = CreateWindowExW(0, L"EDIT", L"80", WS_CHILD | WS_VISIBLE | WS_BORDER, 
 	size.cx, size.cy + 30, 120, size.cy, hwnd, NULL, hInst, NULL);
 	
 
@@ -179,9 +185,7 @@ bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, L
 	HWND btnServer = CreateWindowExW(0, L"BUTTON", L"Create server", WS_CHILD | WS_VISIBLE,
 	0, size.cy + 90, serverBtnTextSize.cx, 20, hwnd, (HMENU)ButtonId::CreateServer, hInst, NULL);
 	
-	out->teUsername = teUsername;
-	out->teIpAddress = teIpAddress;	
-	out->tePort = tePort;
+	
 
 	//Allow user to navigate with tab
 	HWND childHwnds[]{teUsername, teIpAddress, tePort, btnLogin, btnServer};
@@ -196,8 +200,8 @@ bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, L
 	//so user can invoke button from the enter button
 	SetPropW(btnLogin, L"BUTTONID", (HANDLE)MAKEWPARAM(ButtonId::Login, BN_CLICKED));
 	SetPropW(btnServer, L"BUTTONID", (HANDLE)MAKEWPARAM(ButtonId::CreateServer, BN_CLICKED));
-	SetPropW(btnLogin, L"LOGINWINDOW", (HANDLE)out);
-	SetPropW(btnServer, L"LOGINWINDOW", (HANDLE)out);
+	SetPropW(btnLogin, L"LOGINWINDOW", (HANDLE)this);
+	SetPropW(btnServer, L"LOGINWINDOW", (HANDLE)this);
 
 
 	#pragma region fill up details based off command-line args				
@@ -246,28 +250,35 @@ bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, L
 	}//end of for loop
 	if(actionToDo == SHOULD_CREATE)
 	{
-		SendMessageW(hwnd, WM_COMMAND, MAKEWORD(LoginWindow::ButtonId::CreateServer, 0), NULL);
+		SendMessageW(hwnd, WM_COMMAND, MAKEWORD(LoginWindow::ButtonId::CreateServer, 0), 0);
 	}
 	else if(actionToDo == SHOULD_LOGIN)
 	{
-		SendMessageW(hwnd, WM_COMMAND, MAKEWORD(LoginWindow::ButtonId::Login, 0), NULL);
+		SendMessageW(hwnd, WM_COMMAND, MAKEWORD(LoginWindow::ButtonId::Login, 0), 0);
 	}	
 	#pragma endregion
 
 	return true;
 }
+bool LoginWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, LoginWindow* out) 
+{			
+	return out->Create(hInst, x, y, width, height);
+}
 
-LoginWindow& LoginWindow::SetChatClient(ChatClient* chatClient){
+LoginWindow& LoginWindow::SetChatClient(ChatClient* chatClient)
+{
 	 this->chatClient = chatClient;
 	 this->chatClient->loginWindow = this;
 }
 
-LoginWindow& LoginWindow::SetChatServer(ChatServer* chatServer){ 
+LoginWindow& LoginWindow::SetChatServer(ChatServer* chatServer)
+{ 
 	this->chatServer = chatServer;
 	this->chatServer->loginWindow = this;
 }
 
-WPARAM LoginWindow::Run() {	
+WPARAM LoginWindow::Run() 
+{	
 	UpdateWindow(hwnd);
 	MSG msg;
 	while (GetMessage(&msg, NULL, 0, 0))
@@ -279,9 +290,4 @@ WPARAM LoginWindow::Run() {
 	return msg.wParam;
 }
 
-const MainWindow* LoginWindow::GetMainWindow() const { return &mainWindow;}
-const ServerWindow* LoginWindow::GetServerWindow() const { return &serverWindow;}
-MainWindow* LoginWindow::GetMainWindow()  { return &mainWindow;}
-ServerWindow* LoginWindow::GetServerWindow() { return &serverWindow;}
 
-HWND LoginWindow::GetHwnd() const{ return hwnd;}

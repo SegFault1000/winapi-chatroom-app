@@ -8,26 +8,52 @@
 
 LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 LRESULT CALLBACK TextEditWndProc(HWND textEdit, UINT msg, WPARAM wParam, LPARAM lParam);
-
-
-
-//MainWindow* window = nullptr;
-
-bool MainWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, MainWindow* out) {	
-	//::window = this;
+bool MainWindow::Create(HINSTANCE hInst, int x, int y, int width, int height)
+{
 	if(!windowClassRegistered)  
 	{
 		MessageBoxW(0, L"MainWindow::RegisterWindowClass needs to be invoked prior to creating a MainWindow object", L"Error", 0);
 		std::exit(0);
 	}
-  out->hwnd = CreateWindowExW(0,L"WINDOW", L"ChatRoom",
+  hwnd = CreateWindowExW(0,L"WINDOW", L"ChatRoom",
                        WS_OVERLAPPEDWINDOW | WS_VISIBLE, x, y, width, height,
                        NULL, NULL, hInst, NULL);	
-	if(!out->hwnd)											
+	if(!hwnd)											
 		return false;
-	SetPropW(out->hwnd, L"WINDOW", out);		
-	out->OnCreate(out->hwnd);		
+	SetPropW(hwnd, L"WINDOW", (HANDLE)this);	
+
+	//onCreate():	
+	textEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE,
+	0,300, 350,200, hwnd, NULL,hInst, NULL);	
+			
+	auto oldTextEditProc = SetWindowLongW(textEdit, GWLP_WNDPROC, (LONG_PTR)TextEditWndProc);		
+	SetPropW(textEdit, L"OLDPROC", (HANDLE)oldTextEditProc);
+		
+			
+	if(!reChatBox.Create(hwnd, 0,0,350,290, true))
+	{
+		MessageBoxW(0, L"Failed to create textbox for chat messages", L"Error", 0);
+		std::exit(0);
+	}
+	CreateWindowExW(0, L"STATIC", L"Users:", WS_CHILD | WS_VISIBLE,
+	370, 0, 100, 30,hwnd, NULL, hInst, NULL);
+	lbMembers = CreateWindowExW(0, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | WS_BORDER,
+		370, 30, 175, 290, hwnd, NULL, hInst, NULL
+	);
+	SetPropW(hwnd, L"CHATBOX", (HANDLE)&reChatBox);
+	SetPropW(hwnd, L"WINDOW", this);
+
+	SetPropW(textEdit, L"CHATBOX", (HANDLE)&reChatBox);
+	SetPropW(textEdit, L"WINDOW", this);
+	btnSubmit = CreateWindowExW(0, L"BUTTON", L"Submit", WS_CHILD | WS_VISIBLE,
+	350,320,100,40, hwnd, (HMENU)ButtonId::Submit, hInst, NULL);	
+	//...
 	return true;		
+}
+
+bool MainWindow::Create(HINSTANCE hInst, int x, int y, int width, int height, MainWindow* out) 
+{		
+	return out->Create(hInst, x, y, width, height);
 }
 MainWindow& MainWindow::SetDimensions(uint32_t width, uint32_t height) {
 	this->width = width;
@@ -174,7 +200,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
   switch (msg)
   {		
   case WM_DESTROY:
-		window->Logout();	
+		window->Logout();			
     PostQuitMessage(0);
     break;
 	case WM_PAINT:
@@ -268,31 +294,9 @@ LRESULT CALLBACK TextEditWndProc(HWND textEdit, UINT msg, WPARAM wParam, LPARAM 
 
 
 
-MainWindow& MainWindow::OnCreate(HWND hwnd) {	
-	textEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE,
-		0,300, 350,200, hwnd, NULL,hInstance, NULL);	
-			
-	auto oldTextEditProc = SetWindowLongW(textEdit, GWLP_WNDPROC, (LONG_PTR)TextEditWndProc);		
-	SetPropW(textEdit, L"OLDPROC", (HANDLE)oldTextEditProc);
-		
-		
-	if(!RichEdit::Create(hwnd, hInstance, 0,0,350,290, true, &reChatBox))
-	{
-		MessageBoxW(0, L"Failed to create textbox for chat messages", L"Error", 0);
-		std::exit(0);
-	}
-	CreateWindowExW(0, L"STATIC", L"Users:", WS_CHILD | WS_VISIBLE,
-	370, 0, 100, 30,hwnd, NULL, hInstance, NULL);
-	lbMembers = CreateWindowExW(0, L"LISTBOX", L"", WS_CHILD | WS_VISIBLE | WS_BORDER,
-		370, 30, 175, 290, hwnd, NULL, hInstance, NULL
-	);
-	SetPropW(hwnd, L"CHATBOX", (HANDLE)&reChatBox);
-	SetPropW(hwnd, L"WINDOW", this);
+MainWindow& MainWindow::OnCreate(HWND hwnd) 
+{	
 
-	SetPropW(textEdit, L"CHATBOX", (HANDLE)&reChatBox);
-	SetPropW(textEdit, L"WINDOW", this);
-	btnSubmit = CreateWindowExW(0, L"BUTTON", L"Submit", WS_CHILD | WS_VISIBLE,
-	350,320,100,40, hwnd, (HMENU)ButtonId::Submit, hInstance, NULL);	
 	
 	return *this;
 }

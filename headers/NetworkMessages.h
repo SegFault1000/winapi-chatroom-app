@@ -35,13 +35,19 @@ public:
 	NetworkMessage(rapidjson::Document* other);
 	
 	NetworkMessage& Add(std::string_view key, std::string_view value);
+	NetworkMessage& AddStringRef(std::string_view key, std::string_view value);
 
 
-	bool SendJson(SOCKET client);
+	bool SendJson(SOCKET client) const;
 	
 	ErrorFlag ReceiveJson(SOCKET sock, char* buffer, int32_t bufferSize);	
 	
 	rapidjson::Document& GetDocument() { return doc; }
 	NetworkMessage& EditMember(std::string_view key, std::string_view newValue);
 	std::string ToJson() const;	
+	bool SetFromJson(const std::string& json)
+	{
+		doc.Parse<rapidjson::kParseStopWhenDoneFlag>(json.data());
+		return doc.IsObject();
+	}
 };

@@ -6,16 +6,20 @@
 #include <functional>
 #include <rapidjson/document.h>
 #include <mutex>
+#include <atomic>
 
+class NetworkMessage;
 class ChatClient
 {
 	WSADATA* wsa = NULL;
-	SOCKET sock = NULL;
+	SOCKET sock = 0;
 	bool isConnected = false;
 	std::thread receptionThread;	
+	std::thread pingThread;
 	void Run();
 	std::unordered_map<std::string, std::function<void(rapidjson::Document&)>> networkActionMap;
 	std::mutex sendMutex;
+	std::atomic_bool running = false;	
 public:
 	class LoginWindow* loginWindow = NULL;
 	ChatClient(WSADATA* wsa);	
@@ -24,8 +28,9 @@ public:
 	void SendChatMessage(WCHAR* str, int len);
 	void SetUsername(WCHAR* str, int len);
 	void Logout();
-	void SendJsonToServer(std::string json);
 	
-	std::function<void(std::wstring, std::wstring)> chatMessageCallback;
-	void SetChatMessageCallback(std::function<void(std::wstring, std::wstring)> func);	
+	#pragma thread-safe 	
+	bool SendNetworkMessageToServer(const NetworkMessage& networkMessage);
+	#pragma endregion
+		
 };

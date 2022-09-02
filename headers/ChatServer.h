@@ -8,6 +8,7 @@
 #include <functional>
 #include <unordered_set>
 
+
 class ChatServer
 {	
 	std::vector<SOCKET> clients;
@@ -30,7 +31,10 @@ class ChatServer
 			None							= 0 << 0, 
 			LoggedIn 					= 1 << 0,
 			CanDeleteMessages = 1 << 1,
-			Muted 						= 1 << 2
+			CanMuteMembers		= 1 << 2,
+			Muted 						= 1 << 3,
+			Authenticated 		= 1 << 4, //pending implementation of authentication
+
 		};
 		std::underlying_type_t<Flag> flags = Flag::LoggedIn;
 	};
@@ -53,4 +57,7 @@ public:
 	std::mutex logMutex;
 	void Log(std::string);
 	void Log(std::wstring);
+
+
+	constexpr inline static bool disconnectIfNoPings = true;
 };

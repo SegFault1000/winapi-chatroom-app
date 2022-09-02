@@ -10,7 +10,14 @@ NetworkMessage::NetworkMessage() : doc{rapidjson::kObjectType}, targetDoc{&doc}
 NetworkMessage::NetworkMessage(rapidjson::Document* other) : targetDoc(other){}
 
 NetworkMessage& NetworkMessage::Add(std::string_view key, std::string_view value)
-{
+{	
+	doc.AddMember(rapidjson::Value(key.data(),key.size()), 
+		rapidjson::Value(value.data(),value.size(), doc.GetAllocator()), 
+			doc.GetAllocator());
+	return *this;
+}
+NetworkMessage& NetworkMessage::AddStringRef(std::string_view key, std::string_view value)
+{	
 	doc.AddMember(rapidjson::Value(key.data(),key.size()), 
 		rapidjson::Value(value.data(),value.size()), 
 			doc.GetAllocator());
@@ -19,7 +26,7 @@ NetworkMessage& NetworkMessage::Add(std::string_view key, std::string_view value
 
 
 
-bool NetworkMessage::SendJson(SOCKET client)
+bool NetworkMessage::SendJson(SOCKET client) const
 {
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -28,6 +35,8 @@ bool NetworkMessage::SendJson(SOCKET client)
 	
 	int32_t jsonSize = buffer.GetLength();
 	int32_t sent_size = send(client, (const char*)&jsonSize, sizeof(jsonSize), 0);
+	if(sent_size == SOCKET_ERROR)
+	  return false;
 	while(sent_size < sizeof(jsonSize))
 	{
 		int32_t bytesLeft = sizeof(jsonSize) - sent_size;
@@ -40,6 +49,8 @@ bool NetworkMessage::SendJson(SOCKET client)
 	}
 
 	sent_size = send(client, json, jsonSize, 0);
+	if(sent_size == SOCKET_ERROR)
+	  return false;
 	while(sent_size < jsonSize)
 	{
 		int32_t bytesLeft = jsonSize - sent_size;
@@ -53,7 +64,8 @@ bool NetworkMessage::SendJson(SOCKET client)
 	return true;
 }
 
-std::string NetworkMessage::ToJson() const {
+std::string NetworkMessage::ToJson() const 
+{
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
 	targetDoc->Accept(writer);
@@ -91,6 +103,7 @@ NetworkMessage::ErrorFlag NetworkMessage::ReceiveJson(SOCKET sock, char* buffer,
 		}
 		recv_size += receivedBytes;
 	}
+	buffer[recv_size] = '\0';
 	targetDoc->Parse<rapidjson::kParseStopWhenDoneFlag>(buffer);
 	return targetDoc->IsObject() ? ErrorFlag::Success : ErrorFlag::InvalidJson;
 }

@@ -28,15 +28,12 @@ bool ChatClient::Connect(const WCHAR* ip, u_short port)
 			fmt::format(L"Failed to create socket. Error code: {}", WSAGetLastError()).data(),
 			L"Error", 0);		
 		return false;
-	}
-	size_t requiredSize = WideCharToMultiByte(CP_UTF8, 0, ip, -1, NULL, 0, NULL, NULL);
-	char* buffer = new char[requiredSize + 1];
-	WideCharToMultiByte(CP_UTF8, 0, ip, -1, buffer, requiredSize, NULL, NULL);
+	}	
+	std::string buffer = util::wcstombs(ip);
 	sockaddr_in server;
 	server.sin_family = AF_INET;
-	server.sin_addr.S_un.S_addr = inet_addr(buffer);
-	server.sin_port = htons(port);
-	delete[] buffer;
+	server.sin_addr.S_un.S_addr = inet_addr(buffer.data());
+	server.sin_port = htons(port);	
 
 	if(connect(sock, (sockaddr*)&server, sizeof(server)) != 0)		
 	{
@@ -61,124 +58,99 @@ bool ChatClient::IsConnected() const
 void ChatClient::SendChatMessage(WCHAR* str, int len) 
 {	
 	NetworkMessage msg;
-	msg.Add("type", NetworkMessage::CHAT_MESSAGE);
-	msg.Add("username", "User");
-	msg.Add("content", util::wcstombs(str, len));
-	SendJsonToServer(msg.ToJson());
-	return;	
+	msg.AddStringRef("type", NetworkMessage::CHAT_MESSAGE);
+	msg.AddStringRef("username", "User");
+	const std::string content = util::wcstombs(str, len);
+	msg.AddStringRef("content", content);
+	if(!SendNetworkMessageToServer(msg))
+	{
+		if(!loginWindow || !loginWindow->GetMainWindow())
+		{
+			MessageBoxW(0, L"Failed to send chat message.", L"Error", 0);			
+		}
+		else
+		{
+			loginWindow->GetMainWindow()->AppendChatBox(RGB(255,0,0), RichEdit::Bold, L"Failed to send chat message.\n");
+		}
+	}
+	
+	return;		
 }
 void ChatClient::Logout() 
 {
 	NetworkMessage msg;
 	msg.Add("type", NetworkMessage::MEMBER_LOGOUT);
-	SendJsonToServer(msg.ToJson());	
+	SendNetworkMessageToServer(msg);	
+	running = false;	
 }
 void ChatClient::SetUsername(WCHAR* str, int len)
 {		
 	NetworkMessage msg;
 	msg.Add("type", NetworkMessage::SET_USERNAME);
 	msg.Add("username", util::wcstombs(str, len));			
-	SendJsonToServer(msg.ToJson());
+	SendNetworkMessageToServer(msg);	
 }
-void ChatClient::SendJsonToServer(std::string json) 
+
+bool ChatClient::SendNetworkMessageToServer(const NetworkMessage& msg)
 {
-	#define ERROR_QUIT_IF(condition, message_to_send) if(condition){ std::wcout << L"Error: " << message_to_send; return;}
 	std::scoped_lock<std::mutex> lck{sendMutex};
-	int32_t jsonSize = json.size();		
-	
-	int32_t sent_size = send(sock, (char*)&jsonSize, sizeof(jsonSize), 0);
-	ERROR_QUIT_IF(sent_size == SOCKET_ERROR, L"Failed to send chat message");
-	while(sent_size < sizeof(jsonSize))
-	{
-		int32_t bytesLeft = sizeof(jsonSize) - sent_size;
-		int32_t bytesSent = send(sock, (char*)&jsonSize + sent_size, bytesLeft, 0);
-		ERROR_QUIT_IF(bytesSent == SOCKET_ERROR, L"Failed to send json");
-		sent_size += bytesSent;	
-	}
-
-	sent_size = send(sock, json.data(), jsonSize, 0);
-	while(sent_size < jsonSize)
-	{
-		int32_t bytesLeft = jsonSize - sent_size;
-		int32_t bytesSent = send(sock, (char*)&jsonSize + sent_size, bytesLeft, 0);
-		ERROR_QUIT_IF(bytesSent == SOCKET_ERROR, L"Failed to send json");
-		sent_size += bytesSent;	
-	}		
-	#undef ERROR_QUIT_IF
-}
-void ChatClient::SetChatMessageCallback(std::function<void(std::wstring, std::wstring)> func) {
-	chatMessageCallback = func;
+	return msg.SendJson(sock);
 }
 
-void ChatClient::Run() {
-	std::wcout << L"Client started recieving: \n";
-	char buffer [6000];
-	std::atomic_bool running = true;
-	std::thread pinging([this, &running]
-	{
+void ChatClient::Run() 
+{
+	std::wcout << L"Client started recieving: \n";	
+	running.store(true);
+
+	if(false)
+	pingThread = std::thread([this]
+	{		
+		uint32_t failCount = 0;
 		NetworkMessage pingMsg;
-		pingMsg.Add("type", NetworkMessage::PING);
-		const std::string pingJson = pingMsg.ToJson();
+		pingMsg.Add("type", NetworkMessage::PING);	
+		bool askedToQuit = false;	
+		const int HIGH_FAIL_COUNT = 3;
 		while(running)
 		{
-			std::this_thread::sleep_for(std::chrono::seconds(2));
-			SendJsonToServer(pingJson);
-		}
+			std::this_thread::sleep_for(std::chrono::seconds(2));			
+			if(SendNetworkMessageToServer(pingMsg))
+			{
+				failCount = 0;
+			}
+			else
+			{
+				failCount += failCount < HIGH_FAIL_COUNT; //only increment if failCount is smaller than 5
+			}
+
+			if(failCount >= HIGH_FAIL_COUNT && !askedToQuit)
+			{
+				askedToQuit = true;
+				int mb_result = MessageBoxW(0,
+				 L"Failing to communicate with server.\n"
+				 L"Would you like to log out?"
+				, L"Error", MB_YESNO);
+				if(mb_result == IDYES)
+				{
+					// pending implementation - should disconnect socket and return to login window here
+				}										
+			}
+		}		
 	});
 
-	
+	char buffer[10'000];	
+	uint32_t recv_fails = 0;
+	bool notifiedOfDisconnect = false;
 	while(running)
-	{				
-		int32_t jsonSize = -1;
-		int32_t recv_size = recv(sock, (char*)&jsonSize, sizeof(jsonSize), 0);
-		
-		if(recv_size == SOCKET_ERROR)
-		{
-			running.store(false);
-				pinging.join();
-				MessageBoxW(0, L"There was an error communicating with server. (section #2)\n", L"ERROR", 0);
-			std::exit(0);
-		}
-		while(recv_size < sizeof(jsonSize))
-		{	
-			int32_t bytesLeft = sizeof(jsonSize) - recv_size;
-			int32_t receivedBytes = recv(sock, (char*)&jsonSize + recv_size, bytesLeft, 0);
-			if(receivedBytes == SOCKET_ERROR)
-			{
-				running.store(false);
-				pinging.join();
-				MessageBoxW(0, L"There was an error communicating with server. (section #2)\n", L"ERROR", 0);
-				std::exit(0);
-			}
-			
-			recv_size += receivedBytes;
-		}						
-
-		recv_size = 0;		
-		while(recv_size < jsonSize)
-		{
-			int32_t bytesLeft = jsonSize - recv_size;
-			int32_t receivedBytes = recv(sock, buffer + recv_size, bytesLeft, 0);
-			if(receivedBytes == SOCKET_ERROR)
-			{
-				running.store(false);
-				pinging.join();
-				MessageBoxW(0, L"There was an error communicating with server. (section #3)\n", L"ERROR", 0);
-				
-				std::exit(0);
-			}
-			if(receivedBytes == 0)
-			{
-				std::wcout << L"Received bytes were 0\n";
-			}
-			recv_size += receivedBytes;
-		}
-		rapidjson::Document doc;
-		doc.Parse<rapidjson::kParseStopWhenDoneFlag>(buffer);
-		if(doc.IsObject())
+	{								
+		NetworkMessage incomingMsg;
+		auto status = incomingMsg.ReceiveJson(sock, buffer, sizeof(buffer));				
+		if(status == NetworkMessage::ErrorFlag::Success)
 		{			
+			notifiedOfDisconnect = false;
+			recv_fails = 0;						
 			try
 			{
+				rapidjson::Document& doc = incomingMsg.GetDocument();
 				std::string type = doc["type"].GetString();
 				auto it = networkActionMap.find(type);
 				if(it != networkActionMap.end())
@@ -192,13 +164,26 @@ void ChatClient::Run() {
 				std::wcout << L"Failed to parse json.\n";
 			}			
 		}
-		else
+		else if(status == NetworkMessage::ErrorFlag::SocketError)
+		{	
+			if(!notifiedOfDisconnect && ++recv_fails >= 30)
+			{
+				notifiedOfDisconnect = true;
+				if(auto mainWindow = loginWindow->GetMainWindow())
+				{
+					mainWindow->AppendChatBox(RGB(229,0,100), RichEdit::Bold, L"WARNING: Experiencing connection issues.\n");
+				}
+			}
+			std::this_thread::sleep_for(std::chrono::milliseconds(2));			
+		}
+		else if(status == NetworkMessage::ErrorFlag::InvalidJson)
 		{
-			std::wcout << L"Not a valid json object...\n";
+			std::wcout << L"Received invalid json from server\n";
 		}
 	} //end of loop
 }
-ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
+ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa)
+{
 	networkActionMap[NetworkMessage::CHAT_MESSAGE] = [this](rapidjson::Document& doc)
 	{
 		if(!loginWindow)
@@ -228,7 +213,7 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 	{
 		if(!loginWindow)
 			return;		
-		MainWindow* mainWindow = loginWindow->GetMainWindow();
+		MainWindow* const mainWindow = loginWindow->GetMainWindow();
 		std::string username = doc["username"].GetString();
 		mainWindow->AppendToMemberList(doc["username"].GetString(), doc["username"].GetStringLength());
 	};
@@ -250,7 +235,7 @@ ChatClient::ChatClient(WSADATA* wsa) : wsa(wsa){
 	{
 		if(!loginWindow)
 			return;
-		MainWindow* mainWindow = loginWindow->GetMainWindow();
+		MainWindow* const mainWindow = loginWindow->GetMainWindow();
 		std::wstring usernameW = util::mbsvtowcs(doc["username"].GetString());		
 		mainWindow->RemoveFromMemberList(usernameW.data());
 		std::wstring chatMsg = fmt::format(L"[{}] has disconnected from the chat.", usernameW);

@@ -15,6 +15,7 @@ public:
 		Italic = CFE_ITALIC
 	};
 	static bool Create(HWND parent, HINSTANCE hInst, int x, int y, int width, int height, bool readOnly, RichEdit* out, DWORD extraFlags = 0);
+	bool Create(HWND parent, int x, int y, int width, int height, bool readOnly, DWORD extraFlags = 0);
 	
 	RichEdit& SetFormat(DWORD dwEffects);
 	RichEdit& AppendText(COLORREF color, RichEdit::FontStyle fs, const WCHAR* text);

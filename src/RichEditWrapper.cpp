@@ -1,5 +1,25 @@
 #include "RichEditWrapper.h"
 
+bool RichEdit::Create(HWND parent, int x, int y, int width, int height, bool readOnly, DWORD extraFlags)
+{				
+	auto flags = WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | WS_VSCROLL | extraFlags;
+	if(readOnly)
+		flags |= ES_READONLY;
+
+	HINSTANCE hInst = (HINSTANCE)GetWindowLongW(parent, GWLP_HINSTANCE);
+	HWND richEdit = CreateWindowExW(0, RICHEDIT_CLASSW, L"", flags, x,y,width,height, parent, NULL, hInst, NULL);
+	if(!richEdit)
+		return false;
+
+	this->parent = parent;
+	this->richEdit = richEdit;		
+	SetPropW(this->richEdit, L"MAINWINDOW", (HANDLE)parent);
+	this->SetFormat(0);
+
+	return true;
+}
+
+
 bool RichEdit::Create(HWND parent, HINSTANCE hInst, int x, int y, int width, int height, bool readOnly, RichEdit* out, DWORD extraFlags)
 {				
 	auto flags = WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE | WS_VSCROLL | extraFlags;
@@ -44,6 +64,7 @@ RichEdit& RichEdit::AppendText(COLORREF color, RichEdit::FontStyle fs, const WCH
 	return *this;
 }
 
-void RichEdit::ScrollToBottom() const {
+void RichEdit::ScrollToBottom() const 
+{
 	SendMessageW(richEdit, WM_VSCROLL, SB_BOTTOM, 0);				
 }

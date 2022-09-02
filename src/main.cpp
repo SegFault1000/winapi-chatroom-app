@@ -9,8 +9,9 @@
 #include "util.h"
 
 int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow)
-{	
-	if(!LoadLibrary(TEXT("Riched32.dll")))
+{			
+	HMODULE riched32_dll = LoadLibraryW(L"Riched32.dll");
+	if(!riched32_dll)
 	{
 		MessageBoxW(0, L"Failed to load Riched32.dll", L"Error", 0);
 		return 1;
@@ -27,21 +28,21 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine,
 	LoginWindow::RegisterWindowClass(hInstance);
 	MainWindow::RegisterWindowClass(hInstance);
 	ServerWindow::RegisterWindowClass(hInstance);
-  	LoginWindow loginWindow; 	
+	LoginWindow loginWindow; 	
 
 	loginWindow.SetChatClient(&chatClient);
 	loginWindow.SetChatServer(&chatServer);
-	if(!LoginWindow::Create(hInstance, 300,300, 600, 400, &loginWindow))
+	if(!loginWindow.Create(hInstance, 300,300, 600, 400))
 	{
 		MessageBoxW(0, L"Failed to create MainWindow", L"Error", 0);
 		return 1;
 	}			
 	
 	WPARAM returnValue = loginWindow.Run();
-
+	
+	FreeLibrary(riched32_dll);
 	WSACleanup();	
 	return returnValue;
 }
-
 
 

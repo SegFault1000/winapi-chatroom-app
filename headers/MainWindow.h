@@ -36,9 +36,9 @@ public:
 	std::unordered_map<WPARAM, std::vector<std::pair<uint32_t, std::function<void()>>>> onKeyDownMap;
 	std::unordered_map<WPARAM, std::vector<std::pair<uint32_t, std::function<void()>>>> onKeyUpMap;
 	std::unordered_map<HMENU, std::function<void()>> OnButtonPressed;
-	
-	//MainWindow(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR pCmdLine, int nCmdShow);
+		
 	static bool Create(HINSTANCE hInst, int x, int y, int width, int height, MainWindow* out);
+	bool Create(HINSTANCE hInst, int x, int y, int width, int height);
 	//1 - Getters:	
 	HWND GetHwnd() const{ return hwnd;}
 	HINSTANCE GetHInstance() const{ return hInstance;}
@@ -76,7 +76,9 @@ public:
 	//-----
 	void Resize(uint32_t width, uint32_t height);
 	operator bool() const{ return hwnd != NULL; }
-	bool IsNull() const { return hwnd == NULL; }			
+	bool IsNull() const { return hwnd == NULL; }	
+	void Hide(){ ShowWindow(hwnd, SW_HIDE);}
+	void Show(){ ShowWindow(hwnd, SW_SHOW);}		
 	enum ButtonId : uint32_t
 	{
 		None, Submit

@@ -5,30 +5,33 @@
 
 LRESULT CALLBACK ServerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-
-bool ServerWindow::Create(HINSTANCE hInstance, int x, int y, int width, int height, ServerWindow* out) 
+bool ServerWindow::Create(HINSTANCE hInstance, int x, int y, int width, int height)
 {
 	if(!windowClassRegistered)
 	{
 		MessageBoxW(0, L"You need to invoke ServerWindow::RegisterWindowClass before using ServerWindow::Create", L"Error", 0);
 		std::exit(0);
 	}
-	HWND hwnd = CreateWindowExW(0, L"SERVERWINDOW", L"Server", WS_VISIBLE | WS_OVERLAPPEDWINDOW,
+	hwnd = CreateWindowExW(0, L"SERVERWINDOW", L"Server", WS_VISIBLE | WS_OVERLAPPEDWINDOW,
 	300,300, 600, 400, NULL, NULL, hInstance, NULL);
 	if(!hwnd)
 		return false;	
-	if(!RichEdit::Create(hwnd, hInstance,0,0,600,400, true, &out->reServerLog))
+	//if(!RichEdit::Create(hwnd, hInstance,0,0,600,400, true, &out->reServerLog))
+	if(!reServerLog.Create(hwnd, 0, 0, 600, 400, true))
 	{
 		MessageBoxW(0, L"Failed to create richedit for ServerWindow", L"Error", 0);
 		std::exit(0);
-	}
-	out->hwnd = hwnd;
-	SetPropW(hwnd, L"WINDOW", (HANDLE)out);		
-	
+	}	
+	SetPropW(hwnd, L"WINDOW", (HANDLE)this);			
 	return true;
 }
+bool ServerWindow::Create(HINSTANCE hInstance, int x, int y, int width, int height, ServerWindow* out) 
+{
+	return out->Create(hInstance,x, y, width, height);
+}
 
-void ServerWindow::RegisterWindowClass(HINSTANCE hInstance) {
+void ServerWindow::RegisterWindowClass(HINSTANCE hInstance) 
+{
 	if(windowClassRegistered)
 		return;
 	windowClassRegistered = true;
@@ -45,7 +48,8 @@ void ServerWindow::RegisterWindowClass(HINSTANCE hInstance) {
   wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 	RegisterClassW(&wc);
 }
-LRESULT CALLBACK ServerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+LRESULT CALLBACK ServerWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) 
+{
 	switch(msg)
 	{
 	case WM_DESTROY:
