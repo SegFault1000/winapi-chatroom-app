@@ -100,7 +100,7 @@ void ChatClient::SendJsonToServer(std::string json)
 	while(sent_size < jsonSize)
 	{
 		int32_t bytesLeft = jsonSize - sent_size;
-		int32_t bytesSent = send(sock, (char*)&jsonSize + sent_size, bytesLeft, 0);
+		int32_t bytesSent = send(sock, json.data() + sent_size, bytesLeft, 0);
 		ERROR_QUIT_IF(bytesSent == SOCKET_ERROR, L"Failed to send json");
 		sent_size += bytesSent;	
 	}		
