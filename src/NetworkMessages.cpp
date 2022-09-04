@@ -1,7 +1,7 @@
 #include "NetworkMessages.h"
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
-#include <winsock2.h>
+
 NetworkMessage::NetworkMessage() : doc{rapidjson::kObjectType}, targetDoc{&doc}
 {
 
@@ -26,7 +26,7 @@ NetworkMessage& NetworkMessage::AddStringRef(std::string_view key, std::string_v
 
 
 
-bool NetworkMessage::SendJson(SOCKET client) const
+bool NetworkMessage::SendJson(SOCKET socket) const
 {
 	rapidjson::StringBuffer buffer;
 	rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
@@ -36,13 +36,11 @@ bool NetworkMessage::SendJson(SOCKET client) const
 	const int32_t jsonSize = buffer.GetLength();
 	const int32_t jsonSizeNetworkOrder = htonl(jsonSize);
 	
-	int32_t sent_size = send(client, (const char*)&jsonSizeNetworkOrder, sizeof(jsonSize), 0);
-	if(sent_size == SOCKET_ERROR)
-	  return false;
+	int32_t sent_size = 0;
 	while(sent_size < sizeof(jsonSize))
 	{
 		int32_t bytesLeft = sizeof(jsonSize) - sent_size;
-		int32_t bytesReceived = send(client, (const char*)&jsonSizeNetworkOrder + sent_size, bytesLeft, 0 );
+		int32_t bytesReceived = send(socket, (const char*)&jsonSizeNetworkOrder + sent_size, bytesLeft, 0 );
 		if(bytesReceived == SOCKET_ERROR)
 		{
 			return false;
@@ -50,13 +48,11 @@ bool NetworkMessage::SendJson(SOCKET client) const
 		sent_size += bytesReceived;			
 	}
 
-	sent_size = send(client, json, jsonSize, 0);
-	if(sent_size == SOCKET_ERROR)
-	  return false;
+	sent_size = 0;
 	while(sent_size < jsonSize)
 	{
 		int32_t bytesLeft = jsonSize - sent_size;
-		int32_t bytesReceived = send(client, json + sent_size, bytesLeft, 0);
+		int32_t bytesReceived = send(socket, json + sent_size, bytesLeft, 0);
 		if(bytesReceived == SOCKET_ERROR)
 		{
 			return false;
@@ -65,7 +61,11 @@ bool NetworkMessage::SendJson(SOCKET client) const
 	}
 	return true;
 }
-
+bool NetworkMessage::SendJson(SOCKET socket, std::mutex& mutex) const
+{	
+	std::scoped_lock<std::mutex> lck{mutex};
+	return SendJson(socket);
+}
 std::string NetworkMessage::ToJson() const 
 {
 	rapidjson::StringBuffer buffer;
@@ -76,13 +76,9 @@ std::string NetworkMessage::ToJson() const
 
 NetworkMessage::ErrorFlag NetworkMessage::ReceiveJson(SOCKET sock, char* buffer, int32_t bufferSize)
 {		
-	int32_t jsonSize = -1;
-	int32_t recv_size = recv(sock, (char*)&jsonSize, sizeof(jsonSize), 0);
-	
-	if(recv_size == SOCKET_ERROR)
-	{								
-		return ErrorFlag::SocketError;
-	}
+	int32_t jsonSize;
+
+	int32_t recv_size = 0;
 	while(recv_size < sizeof(jsonSize))
 	{	
 		int32_t bytesLeft = sizeof(jsonSize) - recv_size;

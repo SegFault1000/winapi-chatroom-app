@@ -1,7 +1,8 @@
 #pragma once
-#include <string>
-#include <rapidjson/document.h>
 #include <winsock2.h>
+#include <rapidjson/document.h>
+#include <string>
+#include <mutex>
 
 class NetworkMessage
 {		
@@ -39,6 +40,7 @@ public:
 
 
 	bool SendJson(SOCKET client) const;
+	bool SendJson(SOCKET client, std::mutex& mutex) const;
 	
 	ErrorFlag ReceiveJson(SOCKET sock, char* buffer, int32_t bufferSize);	
 	

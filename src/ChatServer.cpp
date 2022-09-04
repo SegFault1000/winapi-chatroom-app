@@ -251,7 +251,7 @@ void ChatServer::SendJsonToClient(SOCKET client, const std::string& json)
 {
 	const int32_t jsonSize = json.size();
 	const int32_t jsonSizeNetworkOrder = htonl(jsonSize);
-	int32_t sent_size = send(client, (const char*)&jsonSizeNetworkOrder, sizeof(jsonSize), 0);
+	int32_t sent_size = 0;
 	while(sent_size < sizeof(jsonSize))
 	{
 		int32_t bytesLeft = sizeof(jsonSize) - sent_size;
@@ -264,7 +264,7 @@ void ChatServer::SendJsonToClient(SOCKET client, const std::string& json)
 		sent_size += bytesReceived;			
 	}
 	
-	sent_size = send(client, json.data(), jsonSize, 0);
+	sent_size = 0;
 	while(sent_size < jsonSize)
 	{
 		int32_t bytesLeft = jsonSize - sent_size;
