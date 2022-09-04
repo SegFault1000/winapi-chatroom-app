@@ -21,8 +21,7 @@ bool MainWindow::Create(HINSTANCE hInst, int x, int y, int width, int height)
 	if(!hwnd)											
 		return false;
 	SetPropW(hwnd, L"WINDOW", (HANDLE)this);	
-
-	//onCreate():	
+	
 	textEdit = CreateWindowExW(0, L"EDIT", L"", WS_CHILD | WS_VISIBLE | WS_BORDER | ES_MULTILINE,
 	0,300, 350,200, hwnd, NULL,hInst, NULL);	
 			
@@ -47,7 +46,7 @@ bool MainWindow::Create(HINSTANCE hInst, int x, int y, int width, int height)
 	SetPropW(textEdit, L"WINDOW", this);
 	btnSubmit = CreateWindowExW(0, L"BUTTON", L"Submit", WS_CHILD | WS_VISIBLE,
 	350,320,100,40, hwnd, (HMENU)ButtonId::Submit, hInst, NULL);	
-	//...
+	
 	return true;		
 }
 
@@ -81,17 +80,17 @@ void MainWindow::RegisterWindowClass(HINSTANCE hInstance) {
 		return;
 	windowClassRegistered = true;
 	WNDCLASSW wc;
-  wc.style = CS_HREDRAW | CS_VREDRAW;
-  wc.cbClsExtra = 0;
-  wc.cbWndExtra = 0;
-  wc.lpszClassName = L"WINDOW";
-  wc.hInstance = hInstance;
-  wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
-  wc.lpszMenuName = NULL;
-  wc.lpfnWndProc = MainWindowProc;
-  wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-  wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
-	
+	wc.style = CS_HREDRAW | CS_VREDRAW;
+	wc.cbClsExtra = 0;
+	wc.cbWndExtra = 0;
+	wc.lpszClassName = L"WINDOW";
+	wc.hInstance = hInstance;
+	wc.hbrBackground = GetSysColorBrush(COLOR_3DFACE);
+	wc.lpszMenuName = NULL;
+	wc.lpfnWndProc = MainWindowProc;
+	wc.hCursor = LoadCursor(NULL, IDC_ARROW);
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+
 	RegisterClassW(&wc);
 }
 
@@ -174,10 +173,10 @@ WPARAM MainWindow::Run()
 	UpdateWindow(hwnd);
 	
 	while (GetMessage(&msg, NULL, 0, 0))
-  {
+	{
 		TranslateMessage(&msg);
-    DispatchMessage(&msg);
-  }
+		DispatchMessage(&msg);
+	}
 	
 	return msg.wParam;
 }
@@ -197,12 +196,12 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 	MainWindow* window = (MainWindow*)GetPropW(hwnd, L"WINDOW");
 	auto ShowMessageBox = std::bind(util::ShowMessageBox, 
 		std::placeholders::_1, std::placeholders::_2, 0);
-  switch (msg)
-  {		
-  case WM_DESTROY:
+	switch (msg)
+	{		
+	case WM_DESTROY:
 		window->Logout();			
-    PostQuitMessage(0);
-    break;
+	PostQuitMessage(0);
+	break;
 	case WM_PAINT:
 		if(!window) break;		
 	break;
@@ -212,15 +211,15 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		{									
 			break;
 		} 
-		
-			
+
+
 	}
 	break;
 	case WM_KEYUP:
 	{
 		if(!window) 
 			break;
-		
+
 	}
 	break;
 	case WM_SIZE:
@@ -228,7 +227,7 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 			break;
 		window->width = LOWORD(lParam);
 		window->height = HIWORD(lParam);
-		
+
 	break;	
 	case WM_WINDOWPOSCHANGED:
 		if(!window) 
@@ -258,11 +257,11 @@ LRESULT CALLBACK MainWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPara
 		SetFocus(hwnd);
 	break;
 	case WM_CREATE:
-		
-	break;
-  }
 
-  return DefWindowProcW(hwnd, msg, wParam, lParam);
+	break;
+	}
+
+	return DefWindowProcW(hwnd, msg, wParam, lParam);	
 }
 
 LRESULT CALLBACK TextEditWndProc(HWND textEdit, UINT msg, WPARAM wParam, LPARAM lParam)
