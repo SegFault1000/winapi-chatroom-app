@@ -63,8 +63,7 @@ namespace util
 	}
 }
 
-std::vector<std::string_view> util::split_sv(std::string_view str,
-																						const uint32_t maxSplit)
+std::vector<std::string_view> util::split_sv(std::string_view str, const uint32_t maxSplit)
 {
 	constexpr auto npos = std::string_view::npos;
 	constexpr auto whitespace = " \n\r\t";
@@ -115,16 +114,14 @@ std::vector<std::string_view> util::split_sv(std::string_view str,
 
 		endIdx = str.find_first_of(whitespace, i + 1);
 
-		vec.emplace_back(str.data() + i,
-										(endIdx == npos ? str.size() : endIdx) - i);
+		vec.emplace_back(str.data() + i, (endIdx == npos ? str.size() : endIdx) - i);
 		i = endIdx;
 	}
 	return vec;
 }
 
 
-std::vector<std::wstring_view> util::split_sv(std::wstring_view str,
-																						const uint32_t maxSplit)
+std::vector<std::wstring_view> util::split_sv(std::wstring_view str, const uint32_t maxSplit)
 {
 	constexpr auto npos = std::wstring_view::npos;
 	constexpr auto whitespace = L" \n\r\t";
@@ -173,8 +170,7 @@ std::vector<std::wstring_view> util::split_sv(std::wstring_view str,
 
 		endIdx = str.find_first_of(whitespace, i + 1);
 
-		vec.emplace_back(str.data() + i,
-										(endIdx == npos ? str.size() : endIdx) - i);
+		vec.emplace_back(str.data() + i, (endIdx == npos ? str.size() : endIdx) - i);
 		i = endIdx;
 	}
 	return vec;
